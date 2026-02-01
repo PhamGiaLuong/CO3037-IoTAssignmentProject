@@ -1,0 +1,31 @@
+# .clang-format
+---
+Language:        Cpp
+# Dựa trên chuẩn Google (hoặc LLVM, Mozilla) nhưng có tùy chỉnh
+BasedOnStyle:  Google
+
+# Thụt đầu dòng 4 spaces
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never # Luôn dùng Space thay vì Tab để hiển thị giống nhau trên mọi máy
+
+# Độ dài tối đa của 1 dòng code (80 hoặc 100 hoặc 120)
+ColumnLimit:     80
+
+# Dấu ngoặc nhọn {}
+# Attach: Dấu { nằm cùng dòng với tên hàm
+# Stroustrup: Dấu { nằm riêng 1 dòng
+BreakBeforeBraces: Attach
+
+# Sắp xếp các file include theo thứ tự alphabet
+SortIncludes:    true
+
+# Khoảng trắng xung quanh con trỏ * (int* p vs int *p)
+PointerAlignment: Left
+
+# Format cho switch-case
+IndentCaseLabels: true
+
+# Tự động ngắt dòng comment nếu quá dài
+ReflowComments:  true
+...
