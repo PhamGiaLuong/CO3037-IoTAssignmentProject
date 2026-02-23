@@ -128,18 +128,17 @@ Tuân thủ quy tắc để code thống nhất và dễ đọc:
 
 #### a. Đặt tên (Naming Convention):
 
-* **Biến (Variables):** Sử dụng **camelCase**
-  * Ví dụ: `currentTemperature`, `isSystemReady`
-* **Hàm (Functions):** Sử dụng **PascalCase**
-  * Ví dụ: `ReadSensorData()`, `UpdateLcdDisplay()`
-* **File:** Sử dụng **PascalCase** 
-  * Ví dụ: `SensorModule.cpp`
-* **Hằng số:** Viết HOA toàn bộ
+* **snake_case:** Sử dụng cho **biến (variable)**, **File**
+  * Ví dụ: `current_temperature`, `is_system_ready`, `global.cpp`, `web_server.h`
+* **camelCase** Sử dụng **hàm (Function)**
+  * Ví dụ: `readSensorData()`, `updateLcdDisplay()`
+* **PascalCase** Sử dụng **Class/Struct**
+  * Ví dụ: `SensorData`
+* **Hằng số và Macro:** Viết HOA toàn bộ
   * Ví dụ: `MAX_HUMIDITY_THRESHOLD`
 
 #### b. Comment & Tài liệu:
 
-* **Header Comment:** Mỗi file cần có phần giới thiệu ngắn gọn ở đầu file (Tên file, Tác giả, Chức năng chính).
 * **Logic Comment:** Bắt buộc comment giải thích các đoạn logic phức tạp để người khác dễ hiểu khi review.
 * **Ngôn ngữ:** Sử dụng tiếng Anh.
 
