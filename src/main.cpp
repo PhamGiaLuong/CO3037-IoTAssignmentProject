@@ -1,11 +1,8 @@
-#include <Arduino.h>
-
-// put function declarations here:
-int myFunction(int, int);
+#include "global.h"
 
 void setup() {
-    // put your setup code here, to run once:
-    int result = myFunction(2, 3);
+    Serial.begin(115200);
+    initSensorMutex();
 }
 
 void loop() {
