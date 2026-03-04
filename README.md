@@ -142,10 +142,20 @@ Tuân thủ quy tắc để code thống nhất và dễ đọc:
 * **Logic Comment:** Bắt buộc comment giải thích các đoạn logic phức tạp để người khác dễ hiểu khi review.
 * **Ngôn ngữ:** Sử dụng tiếng Anh.
 
+#### c. Log trạng thái (Logging Standards)
+* **Không sử dụng `Serial.print()` rải rác**: Việc gọi trực tiếp hàm in từ các task sẽ làm Serial Monitor khó đọc và lỗi in.
+* **Sử dụng Macro Thread-Safe**: Bắt buộc sử dụng các Logging Macro đã được bọc Mutex an toàn định nghĩa sẵn trong `global.h` gồm: `LOG_INFO`, `LOG_WARN`, và `LOG_ERR`.
+* **Định dạng thông báo**: Mọi dòng log phải tuân thủ chuẩn `[LOẠI] [TÊN_MODULE] Nội dung` (Ví dụ đúng: `LOG_INFO("SENSOR", "Read success. Temp: %.2f", temp);`).
+
+```
+[INFO] [SENSOR] Read success. Temp: 28.50
+[INFO] [WIFI] Connected to IP: 192.168.1.15
+[WARN] [SENSOR] High temperature detected: 36.20 C
+[ERR]  [CLOUD] Failed to publish data to CoreIoT.
+```  
 ---
 
 ## 4. Thông tin nhóm
-* **Thành viên 1:** [Họ tên] - Vai trò:
-* **Thành viên 2:** [Họ tên] - Vai trò:
-* **Thành viên 3:** [Họ tên] - Vai trò:
+* **Thành viên 1:** Phạm Gia Lương - 2211960 - luong.pham2211960@hcmut.edu.vn
+* **Thành viên 2:** Lê Quang Minh - 2212047 - minh.lelight@hcmut.edu.vn
 
