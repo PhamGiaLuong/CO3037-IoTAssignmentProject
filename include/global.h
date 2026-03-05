@@ -26,6 +26,14 @@
 #define READ_INTERVAL_KEY "read_interval"
 #define MAX_TEMP_KEY "max_temp"
 #define MAX_HUM_KEY "max_hum"
+#define EVENT_TEMP_WARNING (1 << 0)     // 0x112
+#define EVENT_SENSOR_ERROR (1 << 1)     // 0x121, 0x221
+#define EVENT_LCD_ERROR (1 << 2)        // 0x122
+#define EVENT_NET_AP_MODE (1 << 3)      // 0x131
+#define EVENT_COREIOT_DISCONN (1 << 4)  // 0x132
+#define EVENT_WIFI_DISCONN (1 << 5)     // 0x133
+#define EVENT_HUM_LOW (1 << 6)          // 0x211
+#define EVENT_HUM_HIGH (1 << 7)         // 0x213
 
 // STRUCTS
 struct SensorData {
@@ -51,6 +59,13 @@ struct SystemConfig {
     int read_interval_ms;
     float max_temp_threshold;
     float max_humidity_threshold;
+};
+
+struct SystemState {
+    uint16_t active_error_flags;
+    bool is_ap_mode;
+    bool is_wifi_connected;
+    bool is_coreiot_connected;
 };
 
 // BINARY SEMAPHORES (Event Signaling)
@@ -103,5 +118,15 @@ void setControlState(const ControlState& state);
 // System Config API
 SystemConfig getSystemConfig();
 void setSystemConfig(const SystemConfig& config);
+
+// System State API
+SystemState getSystemState();
+void setSystemState(const SystemState& state);
+
+// Event Management API
+void setSystemErrorFlag(uint16_t flag);
+void clearSystemErrorFlag(uint16_t flag);
+bool checkSystemErrorFlag(uint16_t flag);
+uint32_t getActiveErrorFlags();
 
 #endif

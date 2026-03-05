@@ -5,12 +5,14 @@
 static SensorData sensor_data = {0.0, 0.0, false, false};
 static ControlState control_state = {false, false};
 static SystemConfig system_config;
+static SystemState system_state = {0, false, false, false};
 
 // Mutexes for data protection
 static SemaphoreHandle_t sensor_mutex = NULL;
 static SemaphoreHandle_t control_mutex = NULL;
 static SemaphoreHandle_t config_mutex = NULL;
 static SemaphoreHandle_t serial_mutex = NULL;
+static SemaphoreHandle_t state_mutex = NULL;
 
 // Preferences for ROM storage
 static Preferences preferences;
@@ -29,6 +31,7 @@ void initGlobal() {
     control_mutex = xSemaphoreCreateMutex();
     config_mutex = xSemaphoreCreateMutex();
     serial_mutex = xSemaphoreCreateMutex();
+    state_mutex = xSemaphoreCreateMutex();
 
     // Initialize Binary Semaphores
     temp_warning_semaphore = xSemaphoreCreateBinary();
@@ -89,6 +92,56 @@ void setSystemConfig(const SystemConfig& config) {
         system_config = config;
         xSemaphoreGive(config_mutex);
     }
+}
+
+// System State API
+SystemState getSystemState() {
+    SystemState copy;
+    if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
+        copy = system_state;
+        xSemaphoreGive(state_mutex);
+    }
+    return copy;
+}
+
+void setSystemState(const SystemState& state) {
+    if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
+        system_state = state;
+        xSemaphoreGive(state_mutex);
+    }
+}
+
+// Event Management API
+void setSystemErrorFlag(uint16_t flag) {
+    if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
+        system_state.active_error_flags |= flag;
+        xSemaphoreGive(state_mutex);
+    }
+}
+
+void clearSystemErrorFlag(uint16_t flag) {
+    if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
+        system_state.active_error_flags &= ~flag;
+        xSemaphoreGive(state_mutex);
+    }
+}
+
+bool checkSystemErrorFlag(uint16_t flag) {
+    bool is_set = false;
+    if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
+        is_set = (system_state.active_error_flags & flag) != 0;
+        xSemaphoreGive(state_mutex);
+    }
+    return is_set;
+}
+
+uint32_t getActiveErrorFlags() {
+    uint32_t flags = 0;
+    if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
+        flags = system_state.active_error_flags;
+        xSemaphoreGive(state_mutex);
+    }
+    return flags;
 }
 
 // ROM STORAGE FUNCTIONS
