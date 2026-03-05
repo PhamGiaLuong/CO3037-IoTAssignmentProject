@@ -11,8 +11,8 @@ static SystemState system_state = {0, false, false, false};
 static SemaphoreHandle_t sensor_mutex = NULL;
 static SemaphoreHandle_t control_mutex = NULL;
 static SemaphoreHandle_t config_mutex = NULL;
-static SemaphoreHandle_t serial_mutex = NULL;
 static SemaphoreHandle_t state_mutex = NULL;
+SemaphoreHandle_t serial_mutex = NULL;
 
 // Preferences for ROM storage
 static Preferences preferences;
