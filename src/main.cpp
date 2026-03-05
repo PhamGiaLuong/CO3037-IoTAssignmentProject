@@ -2,12 +2,13 @@
 
 void setup() {
     Serial.begin(115200);
-    initSensorMutex();
+    initGlobal();
+    loadConfigFromFlash();
+
+    // Create tasks
+    // xTaskCreate();
+
+    LOG_INFO("SETUP", "System setup complete.");
 }
 
-void loop() {
-    // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) { return x + y; }
+void loop() {}
