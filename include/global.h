@@ -13,6 +13,8 @@
 #define DEFAULT_READ_INTERVAL_MS 2000
 #define DEFAULT_TEMP_THRESHOLD 35.0
 #define DEFAULT_HUM_THRESHOLD 80.0
+#define DEFAULT_CORE_IOT_PORT 1883
+#define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
 #define DEFAULT_AP_SSID_VALUE "ESP32_AP"
 #define DEFAULT_AP_PASS_VALUE "11335588"
 #define PREFERENCES_NAMESPACE "iot_config"
@@ -26,6 +28,10 @@
 #define READ_INTERVAL_KEY "read_interval"
 #define MAX_TEMP_KEY "max_temp"
 #define MAX_HUM_KEY "max_hum"
+#define MAX_SSID_LEN 32
+#define MAX_PASS_LEN 64
+#define MAX_TOKEN_LEN 64
+#define MAX_SERVER_LEN 64
 #define EVENT_TEMP_WARNING (1 << 0)     // 0x112
 #define EVENT_SENSOR_ERROR (1 << 1)     // 0x121, 0x221
 #define EVENT_LCD_ERROR (1 << 2)        // 0x122
@@ -49,14 +55,14 @@ struct ControlState {
 };
 
 struct SystemConfig {
-    String ap_ssid;
-    String ap_password;
-    String wifi_ssid;
-    String wifi_password;
-    String core_iot_token;
-    String core_iot_server;
-    String core_iot_port;
-    int read_interval_ms;
+    char ap_ssid[MAX_SSID_LEN];
+    char ap_password[MAX_PASS_LEN];
+    char wifi_ssid[MAX_SSID_LEN];
+    char wifi_password[MAX_PASS_LEN];
+    char core_iot_token[MAX_TOKEN_LEN];
+    char core_iot_server[MAX_SERVER_LEN];
+    int16_t core_iot_port;
+    int16_t read_interval_ms;
     float max_temp_threshold;
     float max_humidity_threshold;
 };
