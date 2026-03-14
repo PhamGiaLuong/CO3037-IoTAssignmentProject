@@ -104,13 +104,20 @@ Dự án tuân thủ mô hình tách biệt giữa khai báo (Interface) và tri
 
 * **`main`**: Nhánh chính, chỉ chứa code đã hoàn thiện, ổn định và sẵn sàng để demo.
 * **`integration`**: Nhánh trung gian để các thành viên merge code, kiểm tra xung đột (conflict) trước khi đưa lên `main`.
-* **`member-name-1`**, **`member-name-2`**, **`member-name-3`**: Nhánh riêng của từng thành viên để phát triển tính năng độc lập.
+* **`dev/gia-luong`**, **`dev/quang-minh`**: Nhánh riêng của từng thành viên để phát triển tính năng độc lập.
 
 #### b. Quy trình Merge:
 
-1. Hoàn thiện tính năng trên nhánh cá nhân.
-2. Pull code mới nhất từ `integration` về để giải quyết conflict ở dưới local.
-3. Tạo Pull Request (PR) để merge vào `integration`.
+1. Hoàn thiện tính năng trên nhánh cá nhân và push lên remote
+   ```
+   git push origin dev/<member-name>
+   ```
+2. Pull code mới nhất từ `integration` về để merge nhánh cá nhân vào và giải quyết conflict ở dưới local.
+3. Sau đó push lên lại
+   ```
+   git push origin integration
+   ```
+4. Sau khi hoàn thiện tất cả các tính năng (đã test) mới merge vào `main` để nộp
 
 #### c. Commit Convention:
 
