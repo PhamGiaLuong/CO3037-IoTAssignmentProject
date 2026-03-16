@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 IoT Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --panel-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --accent-color: #0284c7;
+            --accent-hover: #0369a1;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --border-color: #e2e8f0;
+            --nav-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--accent-color);
+        }
+
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem 1rem;
+            position: relative;
+        }
+
+        /* Navigation */
+        nav {
+            background-color: var(--nav-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 0.5rem 0;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            flex: 1;
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--accent-color);
+        }
+
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+            margin-bottom: 4px;
+        }
+
+        /* Views */
+        .view-section {
+            display: none;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-bottom: 4rem;
+            /* Space for bottom nav */
+        }
+
+        .view-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cards & Panels */
+        .panel {
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Dashboard specific */
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .sensor-card {
+            background: linear-gradient(145deg, var(--panel-bg), var(--bg-color));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem 0 0 0;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            justify-content: space-between;
+        }
+
+        .sensor-card>svg,
+        .sensor-card>.sensor-value,
+        .sensor-card>.sensor-label {
+            padding: 0 1rem;
+            z-index: 2;
+        }
+
+        .sensor-card.temp {
+            border-bottom: 3px solid var(--warning-color);
+        }
+
+        .sensor-card.hum {
+            border-bottom: 3px solid var(--accent-color);
+        }
+
+        .sensor-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sensor-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            /* text-transform: uppercase; */
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 70px;
+            margin-top: auto;
+            position: relative;
+        }
+
+        .chart-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sensor-container {
+            position: relative;
+        }
+
+        /* Warning State for Sensor Cards */
+        .sensor-card.warning {
+            border-color: var(--danger-color);
+            background: linear-gradient(145deg, rgba(239, 68, 68, 0.05), var(--bg-color));
+            animation: pulse-warning 2s infinite ease-in-out;
+        }
+
+        .sensor-card.warning .sensor-value,
+        .sensor-card.warning svg {
+            color: var(--danger-color) !important;
+        }
+
+        @keyframes pulse-warning {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .status-dot.connected {
+            background-color: var(--success-color);
+            box-shadow: 0 0 8px var(--success-color);
+        }
+
+        .status-dot.error {
+            background-color: var(--danger-color);
+            box-shadow: 0 0 8px var(--danger-color);
+        }
+
+        /* Controls specific */
+        .control-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .control-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .device-info h3 {
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .device-status {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 56px;
+            height: 30px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            transition: .3s;
+            border-radius: 30px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-muted);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+            background-color: white;
+        }
+
+        input:disabled+.slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Forms specific */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 0.875rem;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: var(--success-color);
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 80px;
+            transform: translateX(-50%);
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 90px;
+        }
+
+        #toast.error {
+            background-color: var(--danger-color);
+        }
+
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .view-section {
+                max-width: 800px;
+            }
+
+            .sensor-grid {
+                gap: 1.5rem;
+            }
+
+            .settings-grid {
+                grid-template-columns: repeat(2, 1fr);
+                align-items: start;
+            }
+
+            #form-cloud {
+                grid-column: 1 / -1;
+            }
+        }
+
+        /* --- Styles cho System Status Panel --- */
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .status-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .status-value {
+            display: flex;
+            align-items: center;
+        }
+
+        .status-text {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .last-update-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: 1rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        @media (min-width: 768px) {
+            .status-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1.5rem;
+                background-color: var(--bg-color);
+                padding: 1.25rem;
+                border-radius: 8px;
+                border: 1px solid var(--border-color);
+            }
+
+            .status-item {
+                flex-direction: column;
+                align-items: flex-start;
+                border-bottom: none;
+                padding-bottom: 0;
+                gap: 0.5rem;
+            }
+
+            .status-item:not(:last-child) {
+                border-right: 1px dashed var(--border-color);
+                padding-right: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>IoT ESP32 CORE</h1>
+    </header>
+
+    <main>
+        <!-- Dashboard View -->
+        <section id="view-dashboard" class="view-section active">
+            <div class="panel">
+                <h2>
+                    <svg style="width:20px;height:20px" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V13L16.25,16.15L17,14.92L12.5,12.25V7H11Z" />
+                    </svg>
+                    System Status
+                </h2>
+
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">Web Connection</span>
+                        <div class="status-value">
+                            <span id="conn-indicator" class="status-dot"></span>
+                            <span id="conn-text" class="status-text">Polling...</span>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <span class="status-label">DHT20 Sensor</span>
+                        <div class="status-value">
+                            <span id="dht-indicator" class="status-dot"></span>
+                            <span id="dht-text" class="status-text">Checking...</span>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <span class="status-label">AI Prediction</span>
+                        <div class="status-value">
+                            <span id="ai-indicator" class="status-dot"></span>
+                            <span id="ai-text" class="status-text">Analyzing...</span>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <span class="status-label">LCD Display</span>
+                        <div class="status-value">
+                            <span id="lcd-indicator" class="status-dot"></span>
+                            <span id="lcd-text" class="status-text">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="last-update-text">
+                    Last Update: <span id="last-update">--:--:--</span>
+                </div>
+            </div>
+
+            <div class="sensor-grid">
+                <div class="sensor-card temp">
+                    <svg style="width:32px;height:32px;color:var(--warning-color);" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z" />
+                    </svg>
+                    <div class="sensor-value" id="val-temp">--.-</div>
+                    <div class="sensor-label">Temperature (°C)</div>
+                    <div class="chart-container">
+                        <canvas id="chart-temp"></canvas>
+                    </div>
+                </div>
+
+                <div class="sensor-card hum">
+                    <svg style="width:32px;height:32px;color:var(--accent-color);" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" />
+                    </svg>
+                    <div class="sensor-value" id="val-hum">--.-</div>
+                    <div class="sensor-label">Humidity (%)</div>
+                    <div class="chart-container">
+                        <canvas id="chart-hum"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls View -->
+        <section id="view-controls" class="view-section">
+            <div class="panel">
+                <h2>
+                    <svg style="width:20px;height:20px" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M12,16A3,3 0 0,1 9,13C9,11.88 9.61,10.9 10.5,10.39L20.21,4.77L21.68,7.29L13.7,11.69V11.83C14.54,12.27 15,13.11 15,14C15,14.54 14.86,15.06 14.55,15.54C14.05,16.29 13.06,16.5 12,16V16M11,10V7H13V10H11M6,8H8V11H6V8M3,12H5V15H3V12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z" />
+                    </svg>
+                    Relay Controls
+                </h2>
+
+                <div class="control-item">
+                    <div class="device-info">
+                        <h3>Device 1</h3>
+                        <div class="device-status" id="status-dev1">State: UNKNOWN</div>
+                    </div>
+                    <div>
+                        <span id="loader-dev1" class="loader" style="margin-right: 10px;"></span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-dev1" onchange="toggleDevice(1, this)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="control-item">
+                    <div class="device-info">
+                        <h3>Device 2</h3>
+                        <div class="device-status" id="status-dev2">State: UNKNOWN</div>
+                    </div>
+                    <div>
+                        <span id="loader-dev2" class="loader" style="margin-right: 10px;"></span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-dev2" onchange="toggleDevice(2, this)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>
+                    <svg style="width:20px;height:20px" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z" />
+                    </svg>
+                    Mode Controls
+                </h2>
+                <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;">
+                    You can switch the device to Wifi connection mode to send data to CoreIoT
+                </div>
+                <button type="button" class="btn" id="btn-wifi-mode" onclick="switchToWifiMode(this)">
+                    <span class="btn-text">Connect to Wifi</span>
+                    <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Settings View -->
+        <section id="view-settings" class="view-section">
+            <div class="panel">
+                <h2 style="margin-bottom: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.8rem;">
+                    <svg style="width:24px;height:24px" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
+                    </svg>
+                    System Configuration
+                </h2>
+                <div class="settings-grid">
+                    <form id="form-ap"
+                        style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                        <h3
+                            style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
+                            <svg style="width:18px;height:18px" viewBox="0 0 24 24">
+                                <path fill="currentColor"
+                                    d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z" />
+                            </svg>
+                            Access Point (AP)
+                        </h3>
+                        <div class="form-group">
+                            <label for="ap_ssid">AP SSID</label>
+                            <input type="text" id="ap_ssid" name="ap_ssid" class="form-control" placeholder="ESP32-AP"
+                                required style="background-color: var(--panel-bg);">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ap_password">AP Password</label>
+                            <input type="password" id="ap_password" name="ap_password" class="form-control"
+                                placeholder="Min 8 chars" minlength="8" required
+                                style="background-color: var(--panel-bg);">
+                        </div>
+                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
+                            <span class="btn-text">Save AP</span>
+                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
+                        </button>
+                    </form>
+
+                    <form id="form-wifi"
+                        style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                        <h3
+                            style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
+                            <svg style="width:18px;height:18px" viewBox="0 0 24 24">
+                                <path fill="currentColor"
+                                    d="M12,2L8,6V10H16V6L12,2M8,12L4,16V22H20V16L16,12H8M10,14H14V17.5L12,19.5L10,17.5V14Z" />
+                            </svg>
+                            WiFi Station
+                        </h3>
+                        <div class="form-group">
+                            <label for="wifi_ssid">WiFi SSID</label>
+                            <input type="text" id="wifi_ssid" name="wifi_ssid" class="form-control"
+                                placeholder="Home Network" required style="background-color: var(--panel-bg);">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="wifi_password">WiFi Password</label>
+                            <input type="password" id="wifi_password" name="wifi_password" class="form-control"
+                                placeholder="Network password" style="background-color: var(--panel-bg);">
+                        </div>
+                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
+                            <span class="btn-text">Save WiFi</span>
+                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
+                        </button>
+                    </form>
+
+                    <form id="form-cloud"
+                        style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                        <h3
+                            style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
+                            <svg style="width:18px;height:18px" viewBox="0 0 24 24">
+                                <path fill="currentColor"
+                                    d="M19.35,10.03C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.03C2.34,8.36 0,10.9 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.03Z" />
+                            </svg>
+                            Cloud & Sensors
+                        </h3>
+                        <div class="form-group">
+                            <label for="core_iot_token">CoreIoT Token</label>
+                            <input type="text" id="core_iot_token" name="core_iot_token" class="form-control"
+                                placeholder="Device Token" required style="background-color: var(--panel-bg);">
+                        </div>
+                        <div class="form-group">
+                            <label for="read_interval_ms">Reading Interval (ms)</label>
+                            <input type="number" id="read_interval_ms" name="read_interval_ms" class="form-control"
+                                min="1000" value="2000" required style="background-color: var(--panel-bg);">
+                        </div>
+                        <div class="sensor-grid" style="gap: 1rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="min_temp_threshold">Min Temp (°C)</label>
+                                <input type="number" id="min_temp_threshold" name="min_temp_threshold"
+                                    class="form-control" value="0" required style="background-color: var(--panel-bg);">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="max_temp_threshold">Max Temp (°C)</label>
+                                <input type="number" id="max_temp_threshold" name="max_temp_threshold"
+                                    class="form-control" value="50" required style="background-color: var(--panel-bg);">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="min_humidity_threshold">Min Hum (%)</label>
+                                <input type="number" id="min_humidity_threshold" name="min_humidity_threshold"
+                                    class="form-control" value="20" required style="background-color: var(--panel-bg);">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="max_humidity_threshold">Max Hum (%)</label>
+                                <input type="number" id="max_humidity_threshold" name="max_humidity_threshold"
+                                    class="form-control" value="80" required style="background-color: var(--panel-bg);">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
+                            <span class="btn-text">Save Cloud Settings</span>
+                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Navigation Bar -->
+    <nav>
+        <div class="nav-item active" onclick="switchView('dashboard')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+                <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z" />
+            </svg>
+            <span style="font-size: 0.75rem; font-weight: 500;">Dashboard</span>
+        </div>
+        <div class="nav-item" onclick="switchView('controls')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+                <path
+                    d="M12,16A3,3 0 0,1 9,13C9,11.88 9.61,10.9 10.5,10.39L20.21,4.77L21.68,7.29L13.7,11.69V11.83C14.54,12.27 15,13.11 15,14C15,14.54 14.86,15.06 14.55,15.54C14.05,16.29 13.06,16.5 12,16V16M11,10V7H13V10H11M6,8H8V11H6V8M3,12H5V15H3V12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z" />
+            </svg>
+            <span style="font-size: 0.75rem; font-weight: 500;">Controls</span>
+        </div>
+        <div class="nav-item" onclick="switchView('settings')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+                <path
+                    d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
+            </svg>
+            <span style="font-size: 0.75rem; font-weight: 500;">Settings</span>
+        </div>
+    </nav>
+
+    <!-- Toast Component -->
+    <div id="toast">Message</div>
+
+    <script>
+
+        (function () {
+            class SimpleLineChart {
+                constructor(canvasId, color, maxDataPoints = 30) {
+                    this.canvas = document.getElementById(canvasId);
+                    this.ctx = this.canvas.getContext('2d');
+                    this.color = color;
+                    this.data = [];
+                    this.maxDataPoints = maxDataPoints;
+
+                    this.resize();
+                    window.addEventListener('resize', () => this.resize());
+                }
+
+                resize() {
+                    if (!this.canvas.parentElement) return;
+                    const dpr = window.devicePixelRatio || 1;
+                    const rect = this.canvas.parentElement.getBoundingClientRect();
+
+                    if (rect.width === 0 || rect.height === 0) return;
+
+                    this.canvas.width = rect.width * dpr;
+                    this.canvas.height = rect.height * dpr;
+                    this.ctx.scale(dpr, dpr);
+
+                    this.canvas.style.width = `${rect.width}px`;
+                    this.canvas.style.height = `${rect.height}px`;
+
+                    this.draw();
+                }
+
+                addData(value) {
+                    if (typeof value !== 'number' || isNaN(value)) return;
+                    this.data.push(value);
+                    if (this.data.length > this.maxDataPoints) {
+                        this.data.shift();
+                    }
+                    requestAnimationFrame(() => this.draw());
+                }
+
+                draw() {
+                    if (!this.canvas.parentElement) return;
+                    const rect = this.canvas.parentElement.getBoundingClientRect();
+                    const width = rect.width;
+                    const height = rect.height;
+
+                    this.ctx.clearRect(0, 0, width, height);
+
+                    if (this.data.length < 2) return;
+
+                    let min = Math.min(...this.data);
+                    let max = Math.max(...this.data);
+
+                    const padding = (max - min) * 0.1 || 1;
+                    min -= padding;
+                    max += padding;
+
+                    const range = max - min || 1;
+                    const xStep = width / (this.maxDataPoints - 1);
+
+                    this.ctx.beginPath();
+                    let currentX = width - (this.data.length - 1) * xStep;
+
+                    for (let i = 0; i < this.data.length; i++) {
+                        const x = currentX + (i * xStep);
+                        const y = height - ((this.data[i] - min) / range) * height;
+
+                        if (i === 0) {
+                            this.ctx.moveTo(x, y);
+                        } else {
+                            this.ctx.lineTo(x, y);
+                        }
+                    }
+
+                    this.ctx.strokeStyle = this.color;
+                    this.ctx.lineWidth = 2.5;
+                    this.ctx.lineCap = 'round';
+                    this.ctx.lineJoin = 'round';
+                    this.ctx.stroke();
+
+                    // Fill area under line
+                    const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
+                    gradient.addColorStop(0, `${this.color}66`); // 40% opacity
+                    gradient.addColorStop(1, `${this.color}00`); // 0% opacity
+
+                    const lastX = currentX + (this.data.length - 1) * xStep;
+                    this.ctx.lineTo(lastX, height);
+                    this.ctx.lineTo(currentX, height);
+                    this.ctx.closePath();
+
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fill();
+                }
+            }
+
+            // DOM Elements
+            const views = document.querySelectorAll('.view-section');
+            const navItems = document.querySelectorAll('.nav-item');
+
+            const tempValue = document.getElementById('val-temp');
+            const humValue = document.getElementById('val-hum');
+            const connIndicator = document.getElementById('conn-indicator');
+            const connText = document.getElementById('conn-text');
+            const lastUpdateText = document.getElementById('last-update');
+            const dhtIndicator = document.getElementById('dht-indicator');
+            const dhtText = document.getElementById('dht-text');
+            const lcdIndicator = document.getElementById('lcd-indicator');
+            const lcdText = document.getElementById('lcd-text');
+            const aiIndicator = document.getElementById('ai-indicator');
+            const aiText = document.getElementById('ai-text');
+
+            let pollingInterval = null;
+            let pollDelay = 2000;
+
+            let tempChart;
+            let humChart;
+
+            function initApp() {
+                switchView('dashboard');
+
+                // Initialize Charts (use CSS vars/colors matching the UI)
+                tempChart = new SimpleLineChart('chart-temp', '#f59e0b', 30); // warning-color
+                humChart = new SimpleLineChart('chart-hum', '#0284c7', 30);   // accent-color
+
+                startPolling();
+                fetchDeviceStates();
+            }
+
+            // SPA Navigation
+            function switchView(viewName) {
+                views.forEach(v => v.classList.remove('active'));
+                navItems.forEach(n => n.classList.remove('active'));
+
+                document.getElementById(`view-${viewName}`).classList.add('active');
+
+                Array.from(navItems).find(item =>
+                    item.getAttribute('onclick').includes(viewName)
+                ).classList.add('active');
+            }
+
+            // DASHBOARD: Fetch Sensor Data
+            async function fetchData() {
+                try {
+                    const response = await fetch('/api/data', {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        updateDashboard(data);
+                    } else {
+                        throw new Error("Server response error");
+                    }
+                } catch (error) {
+                    // console.error("Fetch Data Error:", error);
+                    // setConnectionStatus(false);
+
+                    console.log("Đang chạy chế độ giả lập offline...");
+
+                    const mockData = {
+                        temperature: (25 + Math.random() * 20).toFixed(1), // Can go high to trigger warning
+                        humidity: (55 + Math.random() * 35).toFixed(1),    // Can go high to trigger warning
+                        dht_status: Math.random() > 0.1 ? "OK" : "ERROR",
+                        lcd_status: "OK",
+                        ml_prediction: Math.random() > 0.8 ? "Anomaly" : "Normal",
+                        min_temp_threshold: 0,
+                        max_temp_threshold: 35,
+                        min_humidity_threshold: 20,
+                        max_humidity_threshold: 80
+                    };
+
+                    updateDashboard(mockData);
+                }
+            }
+
+            function updateDashboard(data) {
+                if (data.temperature !== undefined) {
+                    let tempVal = parseFloat(data.temperature);
+                    tempValue.innerText = tempVal.toFixed(1);
+
+                    const tempCard = tempValue.closest('.sensor-card');
+                    const minTemp = data.min_temp_threshold !== undefined ? parseFloat(data.min_temp_threshold) : 0;
+                    const maxTemp = data.max_temp_threshold !== undefined ? parseFloat(data.max_temp_threshold) : 50;
+
+                    if (tempVal < minTemp || tempVal > maxTemp) {
+                        tempCard.classList.add('warning');
+                    } else {
+                        tempCard.classList.remove('warning');
+                    }
+
+                    if (tempChart) tempChart.addData(tempVal);
+                }
+                if (data.humidity !== undefined) {
+                    let humVal = parseFloat(data.humidity);
+                    humValue.innerText = humVal.toFixed(1);
+
+                    const humCard = humValue.closest('.sensor-card');
+                    const minHum = data.min_humidity_threshold !== undefined ? parseFloat(data.min_humidity_threshold) : 20;
+                    const maxHum = data.max_humidity_threshold !== undefined ? parseFloat(data.max_humidity_threshold) : 80;
+
+                    if (humVal < minHum || humVal > maxHum) {
+                        humCard.classList.add('warning');
+                    } else {
+                        humCard.classList.remove('warning');
+                    }
+
+                    if (humChart) humChart.addData(humVal);
+                }
+
+                if (data.dht_status) updatePeripheralStatus(dhtIndicator, dhtText, data.dht_status);
+                if (data.lcd_status) updatePeripheralStatus(lcdIndicator, lcdText, data.lcd_status);
+
+                if (data.ml_prediction) {
+                    if (data.ml_prediction === "Normal") {
+                        updatePeripheralStatus(aiIndicator, aiText, "OK"); // "OK" maps to connected/green
+                        aiText.innerText = "Normal";
+                    } else {
+                        updatePeripheralStatus(aiIndicator, aiText, "ERROR"); // "ERROR" maps to danger/red
+                        aiText.innerText = data.ml_prediction;
+                    }
+                }
+
+                const now = new Date();
+                lastUpdateText.innerText = now.toTimeString().split(' ')[0];
+                setConnectionStatus(true);
+            }
+
+            function setConnectionStatus(connected) {
+                if (connected) {
+                    connIndicator.classList.add('connected');
+                    connText.innerText = 'Online';
+                    connText.style.color = 'var(--success-color)';
+                } else {
+                    connIndicator.classList.remove('connected');
+                    connText.innerText = 'Offline';
+                    connText.style.color = 'var(--text-muted)';
+                }
+            }
+
+            function startPolling() {
+                if (pollingInterval) clearTimeout(pollingInterval);
+
+                fetchData().finally(() => {
+                    pollingInterval = setTimeout(startPolling, pollDelay);
+                });
+            }
+
+            // CONTROLS: Toggle Devices
+            async function fetchDeviceStates() {
+                try {
+                    const res = await fetch('/api/control');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.device1 !== undefined) {
+                            document.getElementById('toggle-dev1').checked = (data.device1 === 'ON');
+                            document.getElementById('status-dev1').innerText = `State: ${data.device1}`;
+                        }
+                        if (data.device2 !== undefined) {
+                            document.getElementById('toggle-dev2').checked = (data.device2 === 'ON');
+                            document.getElementById('status-dev2').innerText = `State: ${data.device2}`;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch device states initially.");
+                }
+            }
+
+            async function toggleDevice(deviceId, checkbox) {
+                const state = checkbox.checked ? "ON" : "OFF";
+                const payload = { device: deviceId, state: state };
+
+                const loader = document.getElementById(`loader-dev${deviceId}`);
+                const statusText = document.getElementById(`status-dev${deviceId}`);
+
+                checkbox.disabled = true;
+                loader.style.display = 'inline-block';
+
+                try {
+                    const response = await fetch('/api/control', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        statusText.innerText = `State: ${state}`;
+                        showToast(`Device ${deviceId} turned ${state}`);
+                    } else {
+                        throw new Error("Command failed");
+                    }
+                } catch (error) {
+                    console.error("Control Error:", error);
+                    showToast(`Failed to update Device ${deviceId}`, true);
+                    // Revert UI changes on failure
+                    checkbox.checked = !checkbox.checked;
+                } finally {
+                    loader.style.display = 'none';
+                    checkbox.disabled = false;
+                }
+            }
+
+            async function switchToWifiMode(button) {
+                const loader = button.querySelector('.loader');
+                const btnText = button.querySelector('.btn-text');
+
+                button.disabled = true;
+                loader.style.display = 'inline-block';
+                btnText.innerText = "Connecting...";
+
+                try {
+                    const response = await fetch('/api/mode/wifi', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        showToast("Successfully switched to Wifi Mode");
+                    } else {
+                        throw new Error("Command failed");
+                    }
+                } catch (error) {
+                    console.error("Mode Switch Error:", error);
+                    showToast("Failed to switch to Wifi Mode", true);
+                } finally {
+                    loader.style.display = 'none';
+                    button.disabled = false;
+                    btnText.innerText = "Connect to Wifi";
+                }
+            }
+
+            // SETTINGS
+            function setupFormHandler(formId, apiEndpoint) {
+                const form = document.getElementById(formId);
+                if (!form) return;
+
+                form.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+
+                    const btn = this.querySelector('button[type="submit"]');
+                    const btnText = this.querySelector('.btn-text');
+                    const loader = this.querySelector('.loader');
+
+                    const originalText = btnText.innerText;
+
+                    btn.disabled = true;
+                    btnText.innerText = "Saving...";
+                    loader.style.display = 'inline-block';
+
+                    const formData = new FormData(this);
+                    const dataObj = Object.fromEntries(formData.entries());
+
+                    if (dataObj.read_interval_ms && !isNaN(dataObj.read_interval_ms)) {
+                        let ms = parseInt(dataObj.read_interval_ms);
+                        if (ms >= 1000) pollDelay = ms;
+                    }
+
+                    try {
+                        const response = await fetch(apiEndpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(dataObj)
+                        });
+
+                        if (response.ok) {
+                            showToast(`${originalText} successfully!`);
+                            if (formId === 'form-cloud') startPolling();
+                        } else {
+                            throw new Error("Server rejected settings");
+                        }
+                    } catch (error) {
+                        console.error(`${formId} Error:`, error);
+                        showToast(`Failed to ${originalText.toLowerCase()}. Check connection.`, true);
+                    } finally {
+                        btn.disabled = false;
+                        btnText.innerText = originalText;
+                        loader.style.display = 'none';
+                    }
+                });
+            }
+
+            setupFormHandler('form-ap', '/api/settings/ap');
+            setupFormHandler('form-wifi', '/api/settings/wifi');
+            setupFormHandler('form-cloud', '/api/settings/cloud');
+
+            // UTILS: Toast Notification
+            function showToast(message, isError = false) {
+                const toast = document.getElementById('toast');
+                toast.innerText = message;
+
+                if (isError) {
+                    toast.classList.add('error');
+                } else {
+                    toast.classList.remove('error');
+                }
+
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            function updatePeripheralStatus(indicator, textElement, status) {
+                indicator.classList.remove('connected', 'error'); // Reset class
+                if (status === 'OK') {
+                    indicator.classList.add('connected');
+                    textElement.innerText = 'Connected';
+                    textElement.style.color = 'var(--success-color)';
+                } else {
+                    indicator.classList.add('error');
+                    textElement.innerText = 'Disconnected / Error';
+                    textElement.style.color = 'var(--danger-color)';
+                }
+            }
+
+            window.switchView = switchView;
+            window.toggleDevice = toggleDevice;
+            window.switchToWifiMode = switchToWifiMode;
+            // Boot
+            initApp();
+
+        })();
+
+    </script>
+</body>
+
+</html>

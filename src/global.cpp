@@ -187,9 +187,13 @@ void loadConfigFromFlash() {
         system_config.read_interval_ms =
             preferences.getShort(READ_INTERVAL_KEY, DEFAULT_READ_INTERVAL_MS);
         system_config.max_temp_threshold =
-            preferences.getFloat(MAX_TEMP_KEY, DEFAULT_TEMP_THRESHOLD);
+            preferences.getFloat(MAX_TEMP_KEY, DEFAULT_MAX_TEMP_THRESHOLD);
+        system_config.min_temp_threshold =
+            preferences.getFloat(MIN_TEMP_KEY, DEFAULT_MIN_TEMP_THRESHOLD);
         system_config.max_humidity_threshold =
-            preferences.getFloat(MAX_HUM_KEY, DEFAULT_HUM_THRESHOLD);
+            preferences.getFloat(MAX_HUM_KEY, DEFAULT_MAX_HUM_THRESHOLD);
+        system_config.min_humidity_threshold =
+            preferences.getFloat(MIN_HUM_KEY, DEFAULT_MIN_HUM_THRESHOLD);
 
         xSemaphoreGive(config_mutex);
     }
@@ -212,7 +216,9 @@ void saveConfigToFlash() {
 
         preferences.putShort(READ_INTERVAL_KEY, system_config.read_interval_ms);
         preferences.putFloat(MAX_TEMP_KEY, system_config.max_temp_threshold);
+        preferences.putFloat(MIN_TEMP_KEY, system_config.min_temp_threshold);
         preferences.putFloat(MAX_HUM_KEY, system_config.max_humidity_threshold);
+        preferences.putFloat(MIN_HUM_KEY, system_config.min_humidity_threshold);
 
         xSemaphoreGive(config_mutex);
     }

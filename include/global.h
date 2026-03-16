@@ -11,8 +11,10 @@
 
 // MACROS & CONSTANTS
 #define DEFAULT_READ_INTERVAL_MS 2000
-#define DEFAULT_TEMP_THRESHOLD 35.0
-#define DEFAULT_HUM_THRESHOLD 80.0
+#define DEFAULT_MAX_TEMP_THRESHOLD 35.0
+#define DEFAULT_MIN_TEMP_THRESHOLD 20.0
+#define DEFAULT_MAX_HUM_THRESHOLD 80.0
+#define DEFAULT_MIN_HUM_THRESHOLD 30.0
 #define DEFAULT_CORE_IOT_PORT 1883
 #define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
 #define DEFAULT_AP_SSID_VALUE "ESP32_IoT_AP"
@@ -27,7 +29,9 @@
 #define CORE_IOT_PORT_KEY "core_iot_port"
 #define READ_INTERVAL_KEY "read_interval"
 #define MAX_TEMP_KEY "max_temp"
+#define MIN_TEMP_KEY "min_temp"
 #define MAX_HUM_KEY "max_hum"
+#define MIN_HUM_KEY "min_hum"
 #define MAX_SSID_LEN 32
 #define MAX_PASS_LEN 64
 #define MAX_TOKEN_LEN 64
@@ -64,7 +68,9 @@ struct SystemConfig {
     int16_t core_iot_port;
     int16_t read_interval_ms;
     float max_temp_threshold;
+    float min_temp_threshold;
     float max_humidity_threshold;
+    float min_humidity_threshold;
 };
 
 struct SystemState {
