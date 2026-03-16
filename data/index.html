@@ -634,7 +634,7 @@
 
                 <div class="control-item">
                     <div class="device-info">
-                        <h3>Device 1</h3>
+                        <h3>Buzzer</h3>
                         <div class="device-status" id="status-dev1">State: UNKNOWN</div>
                     </div>
                     <div>
@@ -1136,9 +1136,11 @@
 
                     if (response.ok) {
                         statusText.innerText = `State: ${state}`;
-                        showToast(`Device ${deviceId} turned ${state}`);
+                        const result = await response.json();
+                        showToast(result.message || "Device 1 updated successfully!");
                     } else {
-                        throw new Error("Command failed");
+                        const result = await response.json();
+                        showToast(`Error: ${result.message}`, true);
                     }
                 } catch (error) {
                     console.error("Control Error:", error);
@@ -1151,79 +1153,64 @@
                 }
             }
 
-            async function switchToWifiMode(button) {
-                const loader = button.querySelector('.loader');
-                const btnText = button.querySelector('.btn-text');
-
-                button.disabled = true;
-                loader.style.display = 'inline-block';
-                btnText.innerText = "Connecting...";
-
+            async function switchToWifiMode() {
                 try {
-                    const response = await fetch('/api/mode/wifi', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
+                    const response = await fetch('/api/mode/wifi', { method: 'POST' });
                     if (response.ok) {
-                        showToast("Successfully switched to Wifi Mode");
+                        const result = await response.json();
+                        showToast(result.message || "Switching to WiFi Mode...");
                     } else {
-                        throw new Error("Command failed");
+                        const errText = await response.text();
+                        showToast(`Error: ${errText}`, true);
                     }
                 } catch (error) {
-                    console.error("Mode Switch Error:", error);
-                    showToast("Failed to switch to Wifi Mode", true);
-                } finally {
-                    loader.style.display = 'none';
-                    button.disabled = false;
-                    btnText.innerText = "Connect to Wifi";
+                    showToast("Connection Error!", true);
                 }
             }
 
             // SETTINGS
-            function setupFormHandler(formId, apiEndpoint) {
+            async function setupFormHandler(formId, apiEndpoint) {
                 const form = document.getElementById(formId);
                 if (!form) return;
 
-                form.addEventListener('submit', async function (e) {
+                const btn = form.querySelector('button[type="submit"]');
+                const btnText = btn.querySelector('.btn-text');
+                const loader = btn.querySelector('.loader');
+                const originalText = btnText.innerText;
+
+                form.addEventListener('submit', async (e) => {
                     e.preventDefault();
-
-                    const btn = this.querySelector('button[type="submit"]');
-                    const btnText = this.querySelector('.btn-text');
-                    const loader = this.querySelector('.loader');
-
-                    const originalText = btnText.innerText;
-
                     btn.disabled = true;
-                    btnText.innerText = "Saving...";
+                    btnText.innerText = 'Saving...';
                     loader.style.display = 'inline-block';
 
-                    const formData = new FormData(this);
-                    const dataObj = Object.fromEntries(formData.entries());
-
-                    if (dataObj.read_interval_ms && !isNaN(dataObj.read_interval_ms)) {
-                        let ms = parseInt(dataObj.read_interval_ms);
-                        if (ms >= 1000) pollDelay = ms;
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+                    for (let key in data) {
+                        if (!isNaN(data[key]) && data[key].trim() !== '') {
+                            data[key] = Number(data[key]);
+                        }
                     }
 
                     try {
                         const response = await fetch(apiEndpoint, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(dataObj)
+                            body: JSON.stringify(data)
                         });
 
                         if (response.ok) {
-                            showToast(`${originalText} successfully!`);
-                            if (formId === 'form-cloud') startPolling();
+                            const result = await response.json(); 
+                            const successMsg = result.message || `${originalText} Successful!`;
+                            showToast(successMsg);
+                            fetchSettings();
                         } else {
-                            throw new Error("Server rejected settings");
+                            const errText = await response.text();
+                            throw new Error(errText || "Server rejected the request");
                         }
                     } catch (error) {
                         console.error(`${formId} Error:`, error);
-                        showToast(`Failed to ${originalText.toLowerCase()}. Check connection.`, true);
+                        showToast(`Error: ${error.message}`, true);
                     } finally {
                         btn.disabled = false;
                         btnText.innerText = originalText;

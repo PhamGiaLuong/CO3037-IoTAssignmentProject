@@ -137,21 +137,26 @@ static void setupControlApi() {
             return server.send(400, "text/plain", "Invalid JSON format");
         }
 
-        ControlState c_state = getControlState();
         int device_id = doc["device"];
         String state_cmd = doc["state"];
-
+        String message = "Invalid device or state command";
         if (device_id == 1) {
-            c_state.is_device1_on = (state_cmd == "ON");
-        } else if (device_id == 2) {
-            c_state.is_device2_on = (state_cmd == "ON");
+            buzzerControl(state_cmd == "ON");
+            message = "Buzzer turned " + state_cmd;
+        } else {
+            server.send(
+                400, "application/json",
+                "{\"status\":\"error\", \"message\":\"" + message + "\"}");
+            LOG_WARN("WEBSERVER", "Invalid device ID in control API: %d",
+                     device_id);
+            return;
         }
-
-        setControlState(c_state);
         LOG_INFO("WEBSERVER", "Device %d set to %s via Web", device_id,
                  state_cmd.c_str());
 
-        server.send(200, "application/json", "{\"status\":\"success\"}");
+        server.send(
+            200, "application/json",
+            "{\"status\":\"success\", \"message\":\"" + message + "\"}");
     });
 }
 
@@ -195,7 +200,9 @@ static void setupSettingsApi() {
         setSystemConfig(config);
         saveConfigToFlash();
         LOG_INFO("WEBSERVER", "AP Settings updated");
-        server.send(200, "application/json", "{\"status\":\"success\"}");
+        server.send(
+            200, "application/json",
+            "{\"status\":\"success\", \"message\":\"AP Settings Saved!\"}");
     });
 
     // WiFi Station settings
@@ -216,7 +223,9 @@ static void setupSettingsApi() {
         setSystemConfig(config);
         saveConfigToFlash();
         LOG_INFO("WEBSERVER", "WiFi Settings updated");
-        server.send(200, "application/json", "{\"status\":\"success\"}");
+        server.send(
+            200, "application/json",
+            "{\"status\":\"success\", \"message\":\"WiFi Settings Saved!\"}");
     });
 
     // Cloud & Sensor thresholds
@@ -245,7 +254,9 @@ static void setupSettingsApi() {
         setSystemConfig(config);
         saveConfigToFlash();
         LOG_INFO("WEBSERVER", "Cloud & Sensor thresholds updated");
-        server.send(200, "application/json", "{\"status\":\"success\"}");
+        server.send(200, "application/json",
+                    "{\"status\":\"success\", \"message\":\"Cloud & Sensor "
+                    "thresholds updated!\"}");
     });
 }
 
@@ -256,6 +267,8 @@ static void setupModeApi() {
                  "Triggered Switch to WiFi Mode via Web Dashboard");
         // Signal Network Manager task using FreeRTOS Semaphore
         xSemaphoreGive(switch_to_sta_semaphore);
-        server.send(200, "application/json", "{\"status\":\"switching\"}");
+        server.send(200, "application/json",
+                    "{\"status\":\"switching\", \"message\":\"Switching to "
+                    "WiFi Mode...\"}");
     });
 }

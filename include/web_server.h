@@ -6,6 +6,7 @@
 #include <WebServer.h>
 
 #include "global.h"
+#include "hardware_manager.h"
 
 void webServerTask(void* pvParameters);
 

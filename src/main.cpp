@@ -1,10 +1,12 @@
 #include "global.h"
+#include "hardware_manager.h"
 #include "network_manager.h"
 #include "web_server.h"
 
 void setup() {
     Serial.begin(115200);
     initGlobal();
+    initHardware();
     loadConfigFromFlash();
 
     // Create tasks
