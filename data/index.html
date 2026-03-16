@@ -596,10 +596,12 @@
 
             <div class="sensor-grid">
                 <div class="sensor-card temp">
-                    <svg style="width:32px;height:32px;color:var(--warning-color);" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z" />
-                    </svg>
+                    <div>
+                        <svg style="width:32px;height:32px;color:var(--warning-color);" viewBox="0 0 24 24">
+                            <path fill="currentColor"
+                                d="M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z" />
+                        </svg>
+                    </div>
                     <div class="sensor-value" id="val-temp">--.-</div>
                     <div class="sensor-label">Temperature (°C)</div>
                     <div class="chart-container">
@@ -608,10 +610,12 @@
                 </div>
 
                 <div class="sensor-card hum">
-                    <svg style="width:32px;height:32px;color:var(--accent-color);" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" />
-                    </svg>
+                    <div>
+                        <svg style="width:32px;height:32px;color:var(--accent-color);" viewBox="0 0 24 24">
+                            <path fill="currentColor"
+                                d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" />
+                        </svg>
+                    </div>
                     <div class="sensor-value" id="val-hum">--.-</div>
                     <div class="sensor-label">Humidity (%)</div>
                     <div class="chart-container">
@@ -696,7 +700,7 @@
                             style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
                             <svg style="width:18px;height:18px" viewBox="0 0 24 24">
                                 <path fill="currentColor"
-                                    d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z" />
+                                    d="M12,2L8,6V10H16V6L12,2M8,12L4,16V22H20V16L16,12H8M10,14H14V17.5L12,19.5L10,17.5V14Z" />
                             </svg>
                             Access Point (AP)
                         </h3>
@@ -723,7 +727,7 @@
                             style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
                             <svg style="width:18px;height:18px" viewBox="0 0 24 24">
                                 <path fill="currentColor"
-                                    d="M12,2L8,6V10H16V6L12,2M8,12L4,16V22H20V16L16,12H8M10,14H14V17.5L12,19.5L10,17.5V14Z" />
+                                    d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z" />
                             </svg>
                             WiFi Station
                         </h3>
