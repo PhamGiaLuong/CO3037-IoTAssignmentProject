@@ -6,13 +6,22 @@
 void setup() {
     Serial.begin(115200);
     initGlobal();
-    initHardware();
     loadConfigFromFlash();
 
     // Create tasks
-    // xTaskCreate();
+    // Task 1: Led blinky
+
+    // Task 2: RGB led
+
+    // Task 3: Sensor reading & LCD display
+
+    // Task 4: Web server
     xTaskCreate(networkTask, "Network_Task", 4096, NULL, 5, NULL);
     xTaskCreate(webServerTask, "WebServer_Task", 8192, NULL, 3, NULL);
+    xTaskCreate(buzzerTask, "Buzzer_Task", 2048, NULL, 4, NULL);
+    // Task 5: ML prediction
+
+    // Task 6: Core IoT communication
 
     LOG_INFO("SETUP", "System setup complete.");
 }

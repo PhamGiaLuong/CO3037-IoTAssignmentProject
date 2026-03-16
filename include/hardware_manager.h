@@ -5,7 +5,6 @@
 
 #define BUZZER_PIN 2
 
-void initHardware();
-void buzzerControl(bool turn_on);
+void buzzerTask(void* pvParameters);
 
 #endif  // __HARDWARE_MANAGER_H__

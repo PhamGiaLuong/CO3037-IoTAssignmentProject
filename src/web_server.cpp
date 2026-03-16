@@ -140,8 +140,11 @@ static void setupControlApi() {
         int device_id = doc["device"];
         String state_cmd = doc["state"];
         String message = "Invalid device or state command";
+
+        ControlState c_state = getControlState();
         if (device_id == 1) {
-            buzzerControl(state_cmd == "ON");
+            c_state.is_device1_on = (state_cmd == "ON");
+            setControlState(c_state);
             message = "Buzzer turned " + state_cmd;
         } else {
             server.send(
