@@ -17,12 +17,10 @@ typedef enum {
 
 static NetworkState current_state = STATE_INIT;
 
-void startStaMode() {
-    SystemConfig config = getSystemConfig();
+void startStaMode(char* ssid = nullptr, char* password = nullptr) {
     WiFi.mode(WIFI_STA);
-    WiFi.begin(config.wifi_ssid, config.wifi_password);
-    LOG_INFO("NETWORK", "Starting STA Mode. Connecting to %s",
-             config.wifi_ssid);
+    WiFi.begin(ssid, password);
+    LOG_INFO("NETWORK", "Starting STA Mode. Connecting to %s", ssid);
 }
 
 void startApMode() {
@@ -131,10 +129,17 @@ void networkTask(void* pvParameters) {
 
                 // Wait for explicit signal from WebServer to switch to STA
                 if (xSemaphoreTake(switch_to_sta_semaphore, 0) == pdTRUE) {
+                    SystemConfig config = getSystemConfig();
+                    if (strlen(config.wifi_ssid) == 0) {
+                        LOG_ERR(
+                            "NETWORK",
+                            "WiFi SSID is empty! Cannot switch to STA mode.");
+                        break;
+                    }
                     LOG_INFO("NETWORK", "User request to switch to STA Mode.");
                     dns_server.stop();
                     current_state = STATE_STA_CONNECTING;
-                    startStaMode();
+                    startStaMode(config.wifi_ssid, config.wifi_password);
                     start_connect_time = millis();
                 }
                 break;

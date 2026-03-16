@@ -27,21 +27,33 @@
             font-family: Roboto, Helvetica, Arial, sans-serif;
         }
 
-        body {
+        html, body {
+            /* height: 100%;
+            width: 100%; */
+            margin: 0;
+            padding: 0;
+            /* overflow: hidden;
+            position: fixed; */
+            overscroll-behavior-y: none;
+        }
+
+        /* body {
             background-color: var(--bg-color);
             color: var(--text-color);
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
+            overscroll-behavior-y: none;
+        } */
 
         header {
             background-color: var(--panel-bg);
             padding: 1rem;
             text-align: center;
             border-bottom: 1px solid var(--border-color);
-            position: relative;
+            /* position: relative;
+            z-index: 10; */
+            position: sticky;
+            top: 0;
             z-index: 10;
         }
 
@@ -53,10 +65,13 @@
         }
 
         main {
-            flex: 1;
-            overflow-y: auto;
+            /* flex: 1;
+            overflow-y: auto; */
             padding: 1.5rem 1rem;
-            position: relative;
+            padding-bottom: 5rem;
+            /* position: relative;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain; */
         }
 
         /* Navigation */
@@ -934,6 +949,7 @@
 
                 startPolling();
                 fetchDeviceStates();
+                fetchSettings();
             }
 
             // SPA Navigation
@@ -1073,6 +1089,29 @@
                     }
                 } catch (e) {
                     console.warn("Could not fetch device states initially.");
+                }
+            }
+
+            // SETTINGS: Fetch Current Configurations
+            async function fetchSettings() {
+                try {
+                    const res = await fetch('/api/settings');
+                    if (res.ok) {
+                        const data = await res.json();
+                        
+                        if(data.ap_ssid) document.getElementById('ap_ssid').value = data.ap_ssid;
+                        if(data.ap_password) document.getElementById('ap_password').value = data.ap_password;
+                        if(data.wifi_ssid) document.getElementById('wifi_ssid').value = data.wifi_ssid;
+                        if(data.wifi_password) document.getElementById('wifi_password').value = data.wifi_password;
+                        if(data.core_iot_token) document.getElementById('core_iot_token').value = data.core_iot_token;
+                        if(data.read_interval_ms) document.getElementById('read_interval_ms').value = data.read_interval_ms;
+                        if(data.min_temp_threshold !== undefined) document.getElementById('min_temp_threshold').value = data.min_temp_threshold;
+                        if(data.max_temp_threshold !== undefined) document.getElementById('max_temp_threshold').value = data.max_temp_threshold;
+                        if(data.min_humidity_threshold !== undefined) document.getElementById('min_humidity_threshold').value = data.min_humidity_threshold;
+                        if(data.max_humidity_threshold !== undefined) document.getElementById('max_humidity_threshold').value = data.max_humidity_threshold;
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch system settings initially.");
                 }
             }
 

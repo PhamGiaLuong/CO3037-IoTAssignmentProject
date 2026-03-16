@@ -54,14 +54,34 @@ static void setupStaticFiles() {
         file.close();
     });
 
+    server.on("/favicon.ico", HTTP_GET, []() { server.send(204); });
+
+    auto captivePortalRedirect = []() {
+        String redirectUrl = "http://" + WiFi.softAPIP().toString() + "/";
+        server.sendHeader("Location", redirectUrl, true);
+        server.send(302, "text/plain", "");
+    };
+    // Block OS health check URLs to prevent captive portal bypass
+    server.on("/generate204", HTTP_GET, captivePortalRedirect);   // Android
+    server.on("/generate_204", HTTP_GET, captivePortalRedirect);  // Android
+    server.on("/chat", HTTP_GET, captivePortalRedirect);          // Android
+    server.on("/gen_204", HTTP_GET, captivePortalRedirect);       // Android
+    server.on("/hotspot-detect.html", HTTP_GET,
+              captivePortalRedirect);  // iOS / macOS
+    server.on("/library/test/success.html", HTTP_GET,
+              captivePortalRedirect);                                // iOS
+    server.on("/ncsi.txt", HTTP_GET, captivePortalRedirect);         // Windows
+    server.on("/cname.aspx", HTTP_GET, captivePortalRedirect);       // Windows
+    server.on("/connecttest.txt", HTTP_GET, captivePortalRedirect);  // Windows
+
     // Redirect all unknown requests to the home page
-    server.onNotFound([]() {
+    server.onNotFound([captivePortalRedirect]() {
         if (server.method() == HTTP_OPTIONS) {
             server.send(200);  // Handle CORS preflight requests
         } else {
-            // Standard HTTP 302 Redirect for Captive Portals
-            server.sendHeader("Location", "/", true);
-            server.send(302, "text/plain", "");
+            LOG_WARN("WEBSERVER", "Unknown URI requested: %s",
+                     server.uri().c_str());
+            captivePortalRedirect();
         }
     });
 }
@@ -137,6 +157,27 @@ static void setupControlApi() {
 
 // Module: System Configurations
 static void setupSettingsApi() {
+    // Get all current settings
+    server.on("/api/settings", HTTP_GET, []() {
+        SystemConfig config = getSystemConfig();
+        StaticJsonDocument<JSON_DOC_SIZE> doc;
+
+        doc["ap_ssid"] = config.ap_ssid;
+        doc["ap_password"] = config.ap_password;
+        doc["wifi_ssid"] = config.wifi_ssid;
+        doc["wifi_password"] = config.wifi_password;
+        doc["core_iot_token"] = config.core_iot_token;
+        doc["read_interval_ms"] = config.read_interval_ms;
+        doc["min_temp_threshold"] = config.min_temp_threshold;
+        doc["max_temp_threshold"] = config.max_temp_threshold;
+        doc["min_humidity_threshold"] = config.min_humidity_threshold;
+        doc["max_humidity_threshold"] = config.max_humidity_threshold;
+
+        String response;
+        serializeJson(doc, response);
+        server.send(200, "application/json", response);
+    });
+
     // Access Point settings
     server.on("/api/settings/ap", HTTP_POST, []() {
         if (!server.hasArg("plain"))
