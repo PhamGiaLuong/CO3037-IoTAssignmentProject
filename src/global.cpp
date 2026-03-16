@@ -6,12 +6,14 @@ static SensorData sensor_data = {0.0, 0.0, false, false};
 static ControlState control_state = {false, false};
 static SystemConfig system_config;
 static SystemState system_state = {0, false, false, false};
+static MlState ml_state = {"Waiting for Data", 0.0};
 
 // Mutexes for data protection
 static SemaphoreHandle_t sensor_mutex = NULL;
 static SemaphoreHandle_t control_mutex = NULL;
 static SemaphoreHandle_t config_mutex = NULL;
 static SemaphoreHandle_t state_mutex = NULL;
+static SemaphoreHandle_t ml_mutex = NULL;
 SemaphoreHandle_t serial_mutex = NULL;
 
 // Preferences for ROM storage
@@ -34,6 +36,7 @@ void initGlobal() {
     config_mutex = xSemaphoreCreateMutex();
     serial_mutex = xSemaphoreCreateMutex();
     state_mutex = xSemaphoreCreateMutex();
+    ml_mutex = xSemaphoreCreateMutex();
 
     // Initialize Binary Semaphores
     temp_warning_semaphore = xSemaphoreCreateBinary();
@@ -112,6 +115,23 @@ void setSystemState(const SystemState& state) {
     if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
         system_state = state;
         xSemaphoreGive(state_mutex);
+    }
+}
+
+// ML State API
+MlState getMlState() {
+    MlState temp;
+    if (xSemaphoreTake(ml_mutex, portMAX_DELAY) == pdTRUE) {
+        temp = ml_state;
+        xSemaphoreGive(ml_mutex);
+    }
+    return temp;
+}
+
+void setMlState(const MlState& state) {
+    if (xSemaphoreTake(ml_mutex, portMAX_DELAY) == pdTRUE) {
+        ml_state = state;
+        xSemaphoreGive(ml_mutex);
     }
 }
 

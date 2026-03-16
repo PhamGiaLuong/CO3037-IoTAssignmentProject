@@ -80,6 +80,11 @@ struct SystemState {
     bool is_coreiot_connected;
 };
 
+struct MlState {
+    char prediction[32];
+    float confidence;
+};
+
 // BINARY SEMAPHORES (Event Signaling)
 extern SemaphoreHandle_t temp_warning_semaphore;
 extern SemaphoreHandle_t hum_warning_semaphore;
@@ -136,6 +141,10 @@ void setSystemConfig(const SystemConfig& config);
 // System State API
 SystemState getSystemState();
 void setSystemState(const SystemState& state);
+
+// ML State API
+MlState getMlState();
+void setMlState(const MlState& state);
 
 // Event Management API
 void setSystemErrorFlag(uint16_t flag);

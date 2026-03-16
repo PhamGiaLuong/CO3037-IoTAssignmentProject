@@ -39,7 +39,8 @@ void startApMode() {
 
     setSystemErrorFlag(EVENT_NET_AP_MODE);
 
-    LOG_INFO("NETWORK", "Starting AP Mode. SSID: %s, IP: %s", config.ap_ssid,
+    LOG_INFO("NETWORK", "Starting AP Mode. SSID: %s, Password: %s, IP: %s",
+             config.ap_ssid, config.ap_password,
              WiFi.softAPIP().toString().c_str());
 }
 

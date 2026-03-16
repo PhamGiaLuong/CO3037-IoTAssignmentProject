@@ -1040,14 +1040,20 @@
 
                 if (data.dht_status) updatePeripheralStatus(dhtIndicator, dhtText, data.dht_status);
                 if (data.lcd_status) updatePeripheralStatus(lcdIndicator, lcdText, data.lcd_status);
-
+                
                 if (data.ml_prediction) {
-                    if (data.ml_prediction === "Normal") {
-                        updatePeripheralStatus(aiIndicator, aiText, "OK"); // "OK" maps to connected/green
-                        aiText.innerText = "Normal";
+                    let displayText = data.ml_prediction;
+                    
+                    if (data.ml_confidence !== undefined && data.ml_confidence > 0) {
+                        displayText += ` (${Number(data.ml_confidence).toFixed(1)}%)`;
+                    }
+
+                    if (data.ml_prediction === "Normal" || data.ml_prediction === "Waiting for Data") {
+                        updatePeripheralStatus(aiIndicator, aiText, "OK"); 
+                        aiText.innerText = displayText;
                     } else {
-                        updatePeripheralStatus(aiIndicator, aiText, "ERROR"); // "ERROR" maps to danger/red
-                        aiText.innerText = data.ml_prediction;
+                        updatePeripheralStatus(aiIndicator, aiText, "ERROR"); 
+                        aiText.innerText = displayText;
                     }
                 }
 

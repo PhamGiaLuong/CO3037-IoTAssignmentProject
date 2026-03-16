@@ -91,6 +91,7 @@ static void setupDashboardApi() {
     server.on("/api/data", HTTP_GET, []() {
         SensorData s_data = getSensorData();
         SystemConfig s_config = getSystemConfig();
+        MlState m_state = getMlState();
 
         StaticJsonDocument<JSON_DOC_SIZE> doc;
 
@@ -102,8 +103,8 @@ static void setupDashboardApi() {
         doc["max_temp_threshold"] = s_config.max_temp_threshold;
         doc["min_humidity_threshold"] = s_config.min_humidity_threshold;
         doc["max_humidity_threshold"] = s_config.max_humidity_threshold;
-        // TODO: Update ML prediction based on Task 5 results
-        doc["ml_prediction"] = "Normal";
+        doc["ml_prediction"] = m_state.prediction;
+        doc["ml_confidence"] = m_state.confidence * 100.0;
 
         String response;
         serializeJson(doc, response);
@@ -195,11 +196,17 @@ static void setupSettingsApi() {
         deserializeJson(doc, server.arg("plain"));
 
         SystemConfig config = getSystemConfig();
-        if (doc.containsKey("ap_ssid"))
-            strlcpy(config.ap_ssid, doc["ap_ssid"] | "", MAX_SSID_LEN);
-        if (doc.containsKey("ap_password"))
-            strlcpy(config.ap_password, doc["ap_password"] | "", MAX_PASS_LEN);
+        if (doc.containsKey("ap_ssid")) {
+            String ssid = doc["ap_ssid"].as<String>();
+            strlcpy(config.ap_ssid, ssid.c_str(), MAX_SSID_LEN);
+        }
+        if (doc.containsKey("ap_password")) {
+            String pass = doc["ap_password"].as<String>();
+            strlcpy(config.ap_password, pass.c_str(), MAX_PASS_LEN);
+        }
 
+        LOG_INFO("WEBSERVER", "New AP SSID: %s, Password: %s", config.ap_ssid,
+                 config.ap_password);
         setSystemConfig(config);
         saveConfigToFlash();
         LOG_INFO("WEBSERVER", "AP Settings updated");
@@ -217,11 +224,14 @@ static void setupSettingsApi() {
         deserializeJson(doc, server.arg("plain"));
 
         SystemConfig config = getSystemConfig();
-        if (doc.containsKey("wifi_ssid"))
-            strlcpy(config.wifi_ssid, doc["wifi_ssid"] | "", MAX_SSID_LEN);
-        if (doc.containsKey("wifi_password"))
-            strlcpy(config.wifi_password, doc["wifi_password"] | "",
-                    MAX_PASS_LEN);
+        if (doc.containsKey("wifi_ssid")) {
+            String ssid = doc["wifi_ssid"].as<String>();
+            strlcpy(config.wifi_ssid, ssid.c_str(), MAX_SSID_LEN);
+        }
+        if (doc.containsKey("wifi_password")) {
+            String pass = doc["wifi_password"].as<String>();
+            strlcpy(config.wifi_password, pass.c_str(), MAX_PASS_LEN);
+        }
 
         setSystemConfig(config);
         saveConfigToFlash();
@@ -240,9 +250,10 @@ static void setupSettingsApi() {
         deserializeJson(doc, server.arg("plain"));
 
         SystemConfig config = getSystemConfig();
-        if (doc.containsKey("core_iot_token"))
-            strlcpy(config.core_iot_token, doc["core_iot_token"] | "",
-                    MAX_TOKEN_LEN);
+        if (doc.containsKey("core_iot_token")) {
+            String token = doc["core_iot_token"].as<String>();
+            strlcpy(config.core_iot_token, token.c_str(), MAX_TOKEN_LEN);
+        }
         if (doc.containsKey("read_interval_ms"))
             config.read_interval_ms = doc["read_interval_ms"];
         if (doc.containsKey("min_temp_threshold"))
