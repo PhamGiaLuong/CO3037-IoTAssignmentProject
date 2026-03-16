@@ -23,6 +23,8 @@ SemaphoreHandle_t hum_warning_semaphore = NULL;
 SemaphoreHandle_t sensor_error_semaphore = NULL;
 SemaphoreHandle_t wifi_error_semaphore = NULL;
 SemaphoreHandle_t coreiot_error_semaphore = NULL;
+SemaphoreHandle_t switch_to_ap_semaphore = NULL;
+SemaphoreHandle_t switch_to_sta_semaphore = NULL;
 
 // SYSTEM INITIALIZATION
 void initGlobal() {
@@ -39,6 +41,8 @@ void initGlobal() {
     sensor_error_semaphore = xSemaphoreCreateBinary();
     wifi_error_semaphore = xSemaphoreCreateBinary();
     coreiot_error_semaphore = xSemaphoreCreateBinary();
+    switch_to_ap_semaphore = xSemaphoreCreateBinary();
+    switch_to_sta_semaphore = xSemaphoreCreateBinary();
 
     LOG_INFO("GLOBAL", "Global RTOS objects initialized");
 }

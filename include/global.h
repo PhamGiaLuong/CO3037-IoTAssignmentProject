@@ -15,9 +15,9 @@
 #define DEFAULT_HUM_THRESHOLD 80.0
 #define DEFAULT_CORE_IOT_PORT 1883
 #define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
-#define DEFAULT_AP_SSID_VALUE "ESP32_AP"
+#define DEFAULT_AP_SSID_VALUE "ESP32_IoT_AP"
 #define DEFAULT_AP_PASS_VALUE "11335588"
-#define PREFERENCES_NAMESPACE "iot_config"
+#define PREFERENCES_NAMESPACE "co3037_iot_config"
 #define AP_SSID_KEY "ap_ssid"
 #define AP_PASS_KEY "ap_pass"
 #define WIFI_SSID_KEY "wifi_ssid"
@@ -80,6 +80,8 @@ extern SemaphoreHandle_t hum_warning_semaphore;
 extern SemaphoreHandle_t sensor_error_semaphore;
 extern SemaphoreHandle_t wifi_error_semaphore;
 extern SemaphoreHandle_t coreiot_error_semaphore;
+extern SemaphoreHandle_t switch_to_ap_semaphore;
+extern SemaphoreHandle_t switch_to_sta_semaphore;
 
 // THREAD-SAFE LOGGING MACROS
 // Syntax: LOG_INFO("MODULE_NAME", "Message format", variables...);
