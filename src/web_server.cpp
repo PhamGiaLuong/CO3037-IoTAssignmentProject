@@ -62,25 +62,28 @@ static void setupStaticFiles() {
         server.send(302, "text/plain", "");
     };
     // Block OS health check URLs to prevent captive portal bypass
-    server.on("/generate204", HTTP_GET, captivePortalRedirect);   // Android
-    server.on("/generate_204", HTTP_GET, captivePortalRedirect);  // Android
-    server.on("/chat", HTTP_GET, captivePortalRedirect);          // Android
-    server.on("/gen_204", HTTP_GET, captivePortalRedirect);       // Android
+    server.on("/generate204", HTTP_GET, captivePortalRedirect);
+    server.on("/generate_204", HTTP_GET, captivePortalRedirect);
+    server.on("/chat", HTTP_GET, captivePortalRedirect);
+    server.on("/gen_204", HTTP_GET, captivePortalRedirect);
+    server.on("/getHttpDnsServerList", HTTP_GET, captivePortalRedirect);
+    server.on("/getDNList", HTTP_GET, captivePortalRedirect);
     server.on("/hotspot-detect.html", HTTP_GET,
               captivePortalRedirect);  // iOS / macOS
     server.on("/library/test/success.html", HTTP_GET,
-              captivePortalRedirect);                                // iOS
-    server.on("/ncsi.txt", HTTP_GET, captivePortalRedirect);         // Windows
-    server.on("/cname.aspx", HTTP_GET, captivePortalRedirect);       // Windows
-    server.on("/connecttest.txt", HTTP_GET, captivePortalRedirect);  // Windows
+              captivePortalRedirect);                         // iOS
+    server.on("/ncsi.txt", HTTP_GET, captivePortalRedirect);  // Windows
+    server.on("/cname.aspx", HTTP_GET, captivePortalRedirect);
+    server.on("/connecttest.txt", HTTP_GET, captivePortalRedirect);
 
     // Redirect all unknown requests to the home page
     server.onNotFound([captivePortalRedirect]() {
         if (server.method() == HTTP_OPTIONS) {
             server.send(200);  // Handle CORS preflight requests
         } else {
-            LOG_WARN("WEBSERVER", "Unknown URI requested: %s",
-                     server.uri().c_str());
+            LOG_WARN("WEBSERVER", "Unknown URI requested: %s (%s)",
+                     server.uri().c_str(),
+                     server.method() == HTTP_GET ? "GET" : "OTHER");
             captivePortalRedirect();
         }
     });
@@ -95,16 +98,16 @@ static void setupDashboardApi() {
 
         StaticJsonDocument<JSON_DOC_SIZE> doc;
 
-        doc["temperature"] = s_data.current_temperature;
-        doc["humidity"] = s_data.current_humidity;
-        doc["dht_status"] = s_data.is_dht20_ok ? "OK" : "ERROR";
-        doc["lcd_status"] = s_data.is_lcd_ok ? "OK" : "ERROR";
-        doc["min_temp_threshold"] = s_config.min_temp_threshold;
-        doc["max_temp_threshold"] = s_config.max_temp_threshold;
-        doc["min_humidity_threshold"] = s_config.min_humidity_threshold;
-        doc["max_humidity_threshold"] = s_config.max_humidity_threshold;
-        doc["ml_prediction"] = m_state.prediction;
-        doc["ml_confidence"] = m_state.confidence * 100.0;
+        doc[JSON_TEMP] = s_data.current_temperature;
+        doc[JSON_HUM] = s_data.current_humidity;
+        doc[JSON_DHT_STATUS] = s_data.is_dht20_ok ? "OK" : "ERROR";
+        doc[JSON_LCD_STATUS] = s_data.is_lcd_ok ? "OK" : "ERROR";
+        doc[JSON_MIN_TEMP] = s_config.min_temp_threshold;
+        doc[JSON_MAX_TEMP] = s_config.max_temp_threshold;
+        doc[JSON_MIN_HUM] = s_config.min_humidity_threshold;
+        doc[JSON_MAX_HUM] = s_config.max_humidity_threshold;
+        doc[JSON_ML_PREDICTION] = m_state.prediction;
+        doc[JSON_ML_CONFIDENCE] = m_state.confidence * 100.0;
 
         String response;
         serializeJson(doc, response);
@@ -119,8 +122,8 @@ static void setupControlApi() {
         ControlState c_state = getControlState();
         StaticJsonDocument<JSON_DOC_SIZE> doc;
 
-        doc["device1"] = c_state.is_device1_on ? "ON" : "OFF";
-        doc["device2"] = c_state.is_device2_on ? "ON" : "OFF";
+        doc[JSON_DEVICE1] = c_state.is_device1_on ? "ON" : "OFF";
+        doc[JSON_DEVICE2] = c_state.is_device2_on ? "ON" : "OFF";
 
         String response;
         serializeJson(doc, response);
@@ -138,8 +141,8 @@ static void setupControlApi() {
             return server.send(400, "text/plain", "Invalid JSON format");
         }
 
-        int device_id = doc["device"];
-        String state_cmd = doc["state"];
+        int device_id = doc[JSON_DEVICE];
+        String state_cmd = doc[JSON_STATE];
         String message = "Invalid device or state command";
 
         ControlState c_state = getControlState();
@@ -171,19 +174,19 @@ static void setupSettingsApi() {
         SystemConfig config = getSystemConfig();
         StaticJsonDocument<JSON_DOC_SIZE> doc;
 
-        doc["ap_ssid"] = config.ap_ssid;
-        doc["ap_password"] = config.ap_password;
-        doc["wifi_ssid"] = config.wifi_ssid;
-        doc["wifi_password"] = config.wifi_password;
-        doc["core_iot_server"] = config.core_iot_server;
-        doc["core_iot_port"] = config.core_iot_port;
-        doc["core_iot_token"] = config.core_iot_token;
-        doc["send_interval_ms"] = config.send_interval_ms;
-        doc["read_interval_ms"] = config.read_interval_ms;
-        doc["min_temp_threshold"] = config.min_temp_threshold;
-        doc["max_temp_threshold"] = config.max_temp_threshold;
-        doc["min_humidity_threshold"] = config.min_humidity_threshold;
-        doc["max_humidity_threshold"] = config.max_humidity_threshold;
+        doc[JSON_AP_SSID] = config.ap_ssid;
+        doc[JSON_AP_PASS] = config.ap_password;
+        doc[JSON_WIFI_SSID] = config.wifi_ssid;
+        doc[JSON_WIFI_PASS] = config.wifi_password;
+        doc[JSON_SERVER] = config.core_iot_server;
+        doc[JSON_PORT] = config.core_iot_port;
+        doc[JSON_TOKEN] = config.core_iot_token;
+        doc[JSON_SEND_INTERVAL] = config.send_interval_ms;
+        doc[JSON_READ_INTERVAL] = config.read_interval_ms;
+        doc[JSON_MIN_TEMP] = config.min_temp_threshold;
+        doc[JSON_MAX_TEMP] = config.max_temp_threshold;
+        doc[JSON_MIN_HUM] = config.min_humidity_threshold;
+        doc[JSON_MAX_HUM] = config.max_humidity_threshold;
 
         String response;
         serializeJson(doc, response);
@@ -199,12 +202,12 @@ static void setupSettingsApi() {
         deserializeJson(doc, server.arg("plain"));
 
         SystemConfig config = getSystemConfig();
-        if (doc.containsKey("ap_ssid")) {
-            String ssid = doc["ap_ssid"].as<String>();
+        if (doc.containsKey(JSON_AP_SSID)) {
+            String ssid = doc[JSON_AP_SSID].as<String>();
             strlcpy(config.ap_ssid, ssid.c_str(), MAX_SSID_LEN);
         }
-        if (doc.containsKey("ap_password")) {
-            String pass = doc["ap_password"].as<String>();
+        if (doc.containsKey(JSON_AP_PASS)) {
+            String pass = doc[JSON_AP_PASS].as<String>();
             strlcpy(config.ap_password, pass.c_str(), MAX_PASS_LEN);
         }
 
@@ -227,12 +230,12 @@ static void setupSettingsApi() {
         deserializeJson(doc, server.arg("plain"));
 
         SystemConfig config = getSystemConfig();
-        if (doc.containsKey("wifi_ssid")) {
-            String ssid = doc["wifi_ssid"].as<String>();
+        if (doc.containsKey(JSON_WIFI_SSID)) {
+            String ssid = doc[JSON_WIFI_SSID].as<String>();
             strlcpy(config.wifi_ssid, ssid.c_str(), MAX_SSID_LEN);
         }
-        if (doc.containsKey("wifi_password")) {
-            String pass = doc["wifi_password"].as<String>();
+        if (doc.containsKey(JSON_WIFI_PASS)) {
+            String pass = doc[JSON_WIFI_PASS].as<String>();
             strlcpy(config.wifi_password, pass.c_str(), MAX_PASS_LEN);
         }
 
@@ -254,18 +257,17 @@ static void setupSettingsApi() {
 
         SystemConfig config = getSystemConfig();
 
-        if (doc.containsKey("core_iot_server")) {
-            String server_url = doc["core_iot_server"].as<String>();
+        if (doc.containsKey(JSON_SERVER)) {
+            String server_url = doc[JSON_SERVER].as<String>();
             strlcpy(config.core_iot_server, server_url.c_str(), MAX_SERVER_LEN);
         }
-        if (doc.containsKey("core_iot_port"))
-            config.core_iot_port = doc["core_iot_port"];
-        if (doc.containsKey("core_iot_token")) {
-            String token = doc["core_iot_token"].as<String>();
+        if (doc.containsKey(JSON_PORT)) config.core_iot_port = doc[JSON_PORT];
+        if (doc.containsKey(JSON_TOKEN)) {
+            String token = doc[JSON_TOKEN].as<String>();
             strlcpy(config.core_iot_token, token.c_str(), MAX_TOKEN_LEN);
         }
-        if (doc.containsKey("send_interval_ms"))
-            config.send_interval_ms = doc["send_interval_ms"];
+        if (doc.containsKey(JSON_SEND_INTERVAL))
+            config.send_interval_ms = doc[JSON_SEND_INTERVAL];
 
         setSystemConfig(config);
         saveConfigToFlash();
@@ -285,16 +287,16 @@ static void setupSettingsApi() {
 
         SystemConfig config = getSystemConfig();
 
-        if (doc.containsKey("read_interval_ms"))
-            config.read_interval_ms = doc["read_interval_ms"];
-        if (doc.containsKey("min_temp_threshold"))
-            config.min_temp_threshold = doc["min_temp_threshold"];
-        if (doc.containsKey("max_temp_threshold"))
-            config.max_temp_threshold = doc["max_temp_threshold"];
-        if (doc.containsKey("min_humidity_threshold"))
-            config.min_humidity_threshold = doc["min_humidity_threshold"];
-        if (doc.containsKey("max_humidity_threshold"))
-            config.max_humidity_threshold = doc["max_humidity_threshold"];
+        if (doc.containsKey(JSON_READ_INTERVAL))
+            config.read_interval_ms = doc[JSON_READ_INTERVAL];
+        if (doc.containsKey(JSON_MIN_TEMP))
+            config.min_temp_threshold = doc[JSON_MIN_TEMP];
+        if (doc.containsKey(JSON_MAX_TEMP))
+            config.max_temp_threshold = doc[JSON_MAX_TEMP];
+        if (doc.containsKey(JSON_MIN_HUM))
+            config.min_humidity_threshold = doc[JSON_MIN_HUM];
+        if (doc.containsKey(JSON_MAX_HUM))
+            config.max_humidity_threshold = doc[JSON_MAX_HUM];
 
         setSystemConfig(config);
         saveConfigToFlash();
