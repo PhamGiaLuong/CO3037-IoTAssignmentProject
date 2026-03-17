@@ -348,7 +348,7 @@
 
         /* Forms specific */
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
         }
 
         .form-group label {
@@ -391,6 +391,27 @@
 
         .btn:hover {
             background-color: var(--accent-hover);
+        }
+
+        .divider {
+            grid-column: span 2;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 0.25rem 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .divider span {
+            padding: 0 10px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
         }
 
         /* Toast Notification */
@@ -443,7 +464,7 @@
         .settings-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 1.5rem;
+            gap: 1rem;
         }
 
         @media (min-width: 768px) {
@@ -452,16 +473,12 @@
             }
 
             .sensor-grid {
-                gap: 1.5rem;
+                gap: 1rem;
             }
 
             .settings-grid {
                 grid-template-columns: repeat(2, 1fr);
                 align-items: start;
-            }
-
-            #form-cloud {
-                grid-column: 1 / -1;
             }
         }
 
@@ -747,50 +764,70 @@
                         </button>
                     </form>
 
-                    <form id="form-cloud"
-                        style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-                        <h3
-                            style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
-                            <svg style="width:18px;height:18px" viewBox="0 0 24 24">
-                                <path fill="currentColor"
-                                    d="M19.35,10.03C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.03C2.34,8.36 0,10.9 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.03Z" />
-                            </svg>
-                            Cloud & Sensors
+                    <form id="form-cloud" style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
+                            <svg style="width:18px;height:18px" viewBox="0 0 24 24"><path fill="currentColor" d="M19.35,10.03C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.03C2.34,8.36 0,10.9 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.03Z" /></svg>
+                            Cloud Configuration
                         </h3>
                         <div class="form-group">
-                            <label for="core_iot_token">CoreIoT Token</label>
-                            <input type="text" id="core_iot_token" name="core_iot_token" class="form-control"
-                                placeholder="Device Token" required style="background-color: var(--panel-bg);">
+                            <label for="core_iot_server">Server Host/IP</label>
+                            <input type="text" id="core_iot_server" name="core_iot_server" class="form-control" placeholder="app.coreiot.io" required style="background-color: var(--panel-bg);">
                         </div>
                         <div class="form-group">
+                            <label for="core_iot_token">Device Token</label>
+                            <input type="text" id="core_iot_token" name="core_iot_token" class="form-control" placeholder="Device Token" required style="background-color: var(--panel-bg);">
+                        </div>
+                        <!-- <div class="sensor-grid" style="gap: 1rem;"> -->
+                            <div class="form-group">
+                                <label for="core_iot_port">MQTT/Server Port</label>
+                                <input type="number" id="core_iot_port" name="core_iot_port" class="form-control" value="1883" required style="background-color: var(--panel-bg);">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="send_interval_ms">Publish Cycle (ms)</label>
+                                <input type="number" id="send_interval_ms" name="send_interval_ms" class="form-control" min="1000" value="5000" required style="background-color: var(--panel-bg);">
+                            </div>
+                        <!-- </div> -->
+                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
+                            <span class="btn-text">Save Cloud</span>
+                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
+                        </button>
+                    </form>
+
+                    <form id="form-sensors" style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
+                            <svg style="width:18px;height:18px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" /></svg>
+                            Sensor Configuration
+                        </h3>
+                        <div class="form-group">
                             <label for="read_interval_ms">Reading Interval (ms)</label>
-                            <input type="number" id="read_interval_ms" name="read_interval_ms" class="form-control"
-                                min="1000" value="2000" required style="background-color: var(--panel-bg);">
+                            <input type="number" id="read_interval_ms" name="read_interval_ms" class="form-control" min="500" value="2000" required style="background-color: var(--panel-bg);">
                         </div>
                         <div class="sensor-grid" style="gap: 1rem;">
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="min_temp_threshold">Min Temp (°C)</label>
-                                <input type="number" id="min_temp_threshold" name="min_temp_threshold"
-                                    class="form-control" value="0" required style="background-color: var(--panel-bg);">
+                            <div class="divider">
+                                <span>Temperature (°C)</span>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label for="max_temp_threshold">Max Temp (°C)</label>
-                                <input type="number" id="max_temp_threshold" name="max_temp_threshold"
-                                    class="form-control" value="50" required style="background-color: var(--panel-bg);">
+                                <label for="min_temp_threshold">Min</label>
+                                <input type="number" id="min_temp_threshold" name="min_temp_threshold" class="form-control" value="0" required style="background-color: var(--panel-bg);">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label for="min_humidity_threshold">Min Hum (%)</label>
-                                <input type="number" id="min_humidity_threshold" name="min_humidity_threshold"
-                                    class="form-control" value="20" required style="background-color: var(--panel-bg);">
+                                <label for="max_temp_threshold">Max</label>
+                                <input type="number" id="max_temp_threshold" name="max_temp_threshold" class="form-control" value="50" required style="background-color: var(--panel-bg);">
+                            </div>
+                            <div class="divider">
+                                <span>Humidity (%)</span>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label for="max_humidity_threshold">Max Hum (%)</label>
-                                <input type="number" id="max_humidity_threshold" name="max_humidity_threshold"
-                                    class="form-control" value="80" required style="background-color: var(--panel-bg);">
+                                <label for="min_humidity_threshold">Min</label>
+                                <input type="number" id="min_humidity_threshold" name="min_humidity_threshold" class="form-control" value="20" required style="background-color: var(--panel-bg);">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="max_humidity_threshold">Max</label>
+                                <input type="number" id="max_humidity_threshold" name="max_humidity_threshold" class="form-control" value="80" required style="background-color: var(--panel-bg);">
                             </div>
                         </div>
                         <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
-                            <span class="btn-text">Save Cloud Settings</span>
+                            <span class="btn-text">Save Sensors</span>
                             <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
                         </button>
                     </form>
@@ -1113,7 +1150,14 @@
                         if(data.ap_password) document.getElementById('ap_password').value = data.ap_password;
                         if(data.wifi_ssid) document.getElementById('wifi_ssid').value = data.wifi_ssid;
                         if(data.wifi_password) document.getElementById('wifi_password').value = data.wifi_password;
+                        
+                        // Cloud data
+                        if(data.core_iot_server) document.getElementById('core_iot_server').value = data.core_iot_server;
+                        if(data.core_iot_port) document.getElementById('core_iot_port').value = data.core_iot_port;
                         if(data.core_iot_token) document.getElementById('core_iot_token').value = data.core_iot_token;
+                        if(data.send_interval_ms) document.getElementById('send_interval_ms').value = data.send_interval_ms;
+                        
+                        // Sensor data
                         if(data.read_interval_ms) document.getElementById('read_interval_ms').value = data.read_interval_ms;
                         if(data.min_temp_threshold !== undefined) document.getElementById('min_temp_threshold').value = data.min_temp_threshold;
                         if(data.max_temp_threshold !== undefined) document.getElementById('max_temp_threshold').value = data.max_temp_threshold;
@@ -1232,6 +1276,7 @@
             setupFormHandler('form-ap', '/api/settings/ap');
             setupFormHandler('form-wifi', '/api/settings/wifi');
             setupFormHandler('form-cloud', '/api/settings/cloud');
+            setupFormHandler('form-sensors', '/api/settings/sensors');
 
             // UTILS: Toast Notification
             function showToast(message, isError = false) {

@@ -11,6 +11,7 @@
 
 // MACROS & CONSTANTS
 #define DEFAULT_READ_INTERVAL_MS 2000
+#define DEFAULT_SEND_INTERVAL_MS 5000
 #define DEFAULT_MAX_TEMP_THRESHOLD 35.0
 #define DEFAULT_MIN_TEMP_THRESHOLD 20.0
 #define DEFAULT_MAX_HUM_THRESHOLD 80.0
@@ -28,6 +29,7 @@
 #define CORE_IOT_SERVER_KEY "c_iot_server"
 #define CORE_IOT_PORT_KEY "c_iot_port"
 #define READ_INTERVAL_KEY "interval"
+#define SEND_INTERVAL_KEY "send_int"
 #define MAX_TEMP_KEY "max_temp"
 #define MIN_TEMP_KEY "min_temp"
 #define MAX_HUM_KEY "max_hum"
@@ -66,6 +68,7 @@ struct SystemConfig {
     char core_iot_token[MAX_TOKEN_LEN];
     char core_iot_server[MAX_SERVER_LEN];
     int16_t core_iot_port;
+    int16_t send_interval_ms;
     int16_t read_interval_ms;
     float max_temp_threshold;
     float min_temp_threshold;

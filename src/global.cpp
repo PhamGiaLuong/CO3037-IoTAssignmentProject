@@ -170,40 +170,43 @@ uint32_t getActiveErrorFlags() {
 
 // ROM STORAGE FUNCTIONS
 void loadConfigFromFlash() {
-    preferences.begin(PREFERENCES_NAMESPACE, true);  // Read-only
+    bool isNamespaceExist =
+        preferences.begin(PREFERENCES_NAMESPACE, true);  // Read-only
 
     if (xSemaphoreTake(config_mutex, portMAX_DELAY) == pdTRUE) {
+        // Access Point
         size_t len_ap_ssid = preferences.getString(
             AP_SSID_KEY, system_config.ap_ssid, MAX_SSID_LEN);
         if (len_ap_ssid == 0) {
             strlcpy(system_config.ap_ssid, DEFAULT_AP_SSID_VALUE, MAX_SSID_LEN);
         }
-
         size_t len_ap_pass = preferences.getString(
             AP_PASS_KEY, system_config.ap_password, MAX_PASS_LEN);
         if (len_ap_pass == 0) {
             strlcpy(system_config.ap_password, DEFAULT_AP_PASS_VALUE,
                     MAX_PASS_LEN);
         }
-
+        // WiFi Station
         size_t len_wifi_ssid = preferences.getString(
             WIFI_SSID_KEY, system_config.wifi_ssid, MAX_SSID_LEN);
         if (len_wifi_ssid == 0) system_config.wifi_ssid[0] = '\0';
-
         size_t len_wifi_pass = preferences.getString(
             WIFI_PASS_KEY, system_config.wifi_password, MAX_PASS_LEN);
         if (len_wifi_pass == 0) system_config.wifi_password[0] = '\0';
-
+        // Core IoT
         size_t len_token = preferences.getString(
             CORE_IOT_TOKEN_KEY, system_config.core_iot_token, MAX_TOKEN_LEN);
         if (len_token == 0) system_config.core_iot_token[0] = '\0';
-
         size_t len_server = preferences.getString(
             CORE_IOT_SERVER_KEY, system_config.core_iot_server, MAX_SERVER_LEN);
-        if (len_server == 0) system_config.core_iot_server[0] = '\0';
+        if (len_server == 0)
+            strlcpy(system_config.core_iot_server, DEFAULT_CORE_IOT_SERVER,
+                    MAX_SERVER_LEN);
         system_config.core_iot_port =
             preferences.getShort(CORE_IOT_PORT_KEY, DEFAULT_CORE_IOT_PORT);
-
+        system_config.send_interval_ms =
+            preferences.getShort(SEND_INTERVAL_KEY, DEFAULT_SEND_INTERVAL_MS);
+        // Thresholds and intervals
         system_config.read_interval_ms =
             preferences.getShort(READ_INTERVAL_KEY, DEFAULT_READ_INTERVAL_MS);
         system_config.max_temp_threshold =
@@ -217,8 +220,12 @@ void loadConfigFromFlash() {
 
         xSemaphoreGive(config_mutex);
     }
-
     preferences.end();
+    if (!isNamespaceExist) {
+        LOG_INFO("GLOBAL",
+                 "First boot detected. Creating Preferences namespace...");
+        saveConfigToFlash();
+    }
 }
 
 void saveConfigToFlash() {
@@ -233,7 +240,7 @@ void saveConfigToFlash() {
         preferences.putString(CORE_IOT_SERVER_KEY,
                               system_config.core_iot_server);
         preferences.putShort(CORE_IOT_PORT_KEY, system_config.core_iot_port);
-
+        preferences.putShort(SEND_INTERVAL_KEY, system_config.send_interval_ms);
         preferences.putShort(READ_INTERVAL_KEY, system_config.read_interval_ms);
         preferences.putFloat(MAX_TEMP_KEY, system_config.max_temp_threshold);
         preferences.putFloat(MIN_TEMP_KEY, system_config.min_temp_threshold);

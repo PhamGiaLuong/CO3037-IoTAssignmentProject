@@ -175,7 +175,10 @@ static void setupSettingsApi() {
         doc["ap_password"] = config.ap_password;
         doc["wifi_ssid"] = config.wifi_ssid;
         doc["wifi_password"] = config.wifi_password;
+        doc["core_iot_server"] = config.core_iot_server;
+        doc["core_iot_port"] = config.core_iot_port;
         doc["core_iot_token"] = config.core_iot_token;
+        doc["send_interval_ms"] = config.send_interval_ms;
         doc["read_interval_ms"] = config.read_interval_ms;
         doc["min_temp_threshold"] = config.min_temp_threshold;
         doc["max_temp_threshold"] = config.max_temp_threshold;
@@ -241,7 +244,7 @@ static void setupSettingsApi() {
             "{\"status\":\"success\", \"message\":\"WiFi Settings Saved!\"}");
     });
 
-    // Cloud & Sensor thresholds
+    // Core IoT settings
     server.on("/api/settings/cloud", HTTP_POST, []() {
         if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON");
@@ -250,10 +253,38 @@ static void setupSettingsApi() {
         deserializeJson(doc, server.arg("plain"));
 
         SystemConfig config = getSystemConfig();
+
+        if (doc.containsKey("core_iot_server")) {
+            String server_url = doc["core_iot_server"].as<String>();
+            strlcpy(config.core_iot_server, server_url.c_str(), MAX_SERVER_LEN);
+        }
+        if (doc.containsKey("core_iot_port"))
+            config.core_iot_port = doc["core_iot_port"];
         if (doc.containsKey("core_iot_token")) {
             String token = doc["core_iot_token"].as<String>();
             strlcpy(config.core_iot_token, token.c_str(), MAX_TOKEN_LEN);
         }
+        if (doc.containsKey("send_interval_ms"))
+            config.send_interval_ms = doc["send_interval_ms"];
+
+        setSystemConfig(config);
+        saveConfigToFlash();
+        LOG_INFO("WEBSERVER", "Cloud settings updated");
+        server.send(200, "application/json",
+                    "{\"status\":\"success\", \"message\":\"Cloud settings "
+                    "updated!\"}");
+    });
+
+    // Sensor Thresholds API
+    server.on("/api/settings/sensors", HTTP_POST, []() {
+        if (!server.hasArg("plain"))
+            return server.send(400, "text/plain", "Missing JSON");
+
+        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        deserializeJson(doc, server.arg("plain"));
+
+        SystemConfig config = getSystemConfig();
+
         if (doc.containsKey("read_interval_ms"))
             config.read_interval_ms = doc["read_interval_ms"];
         if (doc.containsKey("min_temp_threshold"))
@@ -267,10 +298,10 @@ static void setupSettingsApi() {
 
         setSystemConfig(config);
         saveConfigToFlash();
-        LOG_INFO("WEBSERVER", "Cloud & Sensor thresholds updated");
+        LOG_INFO("WEBSERVER", "Sensor thresholds updated");
         server.send(200, "application/json",
-                    "{\"status\":\"success\", \"message\":\"Cloud & Sensor "
-                    "thresholds updated!\"}");
+                    "{\"status\":\"success\", \"message\":\"Sensor thresholds "
+                    "updated!\"}");
     });
 }
 
