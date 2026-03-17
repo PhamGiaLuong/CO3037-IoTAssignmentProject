@@ -35,9 +35,12 @@ void startApMode() {
     SystemState state = getSystemState();
     state.is_ap_mode = true;
     state.is_wifi_connected = false;
+    state.is_coreiot_connected = false;
     setSystemState(state);
 
     setSystemErrorFlag(EVENT_NET_AP_MODE);
+    setSystemErrorFlag(EVENT_WIFI_DISCONN);
+    setSystemErrorFlag(EVENT_COREIOT_DISCONN);
 
     LOG_INFO("NETWORK", "Starting AP Mode. SSID: %s, Password: %s, IP: %s",
              config.ap_ssid, config.ap_password,
@@ -94,6 +97,7 @@ void networkTask(void* pvParameters) {
                     LOG_WARN("NETWORK",
                              "STA Connection timeout! Fallback to AP Mode.");
                     setSystemErrorFlag(EVENT_WIFI_DISCONN);
+                    xSemaphoreGive(wifi_error_semaphore);
                     current_state = STATE_AP_MODE;
                     startApMode();
                 }
@@ -104,10 +108,15 @@ void networkTask(void* pvParameters) {
                     LOG_WARN("NETWORK",
                              "STA Disconnected! Attempting to reconnect...");
                     setSystemErrorFlag(EVENT_WIFI_DISCONN);
+                    setSystemErrorFlag(EVENT_COREIOT_DISCONN);
 
                     SystemState state = getSystemState();
                     state.is_wifi_connected = false;
+                    state.is_coreiot_connected = false;
                     setSystemState(state);
+
+                    xSemaphoreGive(wifi_error_semaphore);
+                    xSemaphoreGive(coreiot_error_semaphore);
 
                     current_state = STATE_STA_CONNECTING;
                     start_connect_time = millis();
