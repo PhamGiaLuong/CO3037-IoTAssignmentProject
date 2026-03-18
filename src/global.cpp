@@ -23,6 +23,7 @@ SemaphoreHandle_t hum_warning_semaphore = NULL;
 SemaphoreHandle_t sensor_error_semaphore = NULL;
 SemaphoreHandle_t wifi_error_semaphore = NULL;
 SemaphoreHandle_t coreiot_error_semaphore = NULL;
+SemaphoreHandle_t lcd_sync_semaphore = NULL;
 
 // SYSTEM INITIALIZATION
 void initGlobal() {
@@ -39,6 +40,7 @@ void initGlobal() {
     sensor_error_semaphore = xSemaphoreCreateBinary();
     wifi_error_semaphore = xSemaphoreCreateBinary();
     coreiot_error_semaphore = xSemaphoreCreateBinary();
+    lcd_sync_semaphore = xSemaphoreCreateBinary();
 
     LOG_INFO("GLOBAL", "Global RTOS objects initialized");
 }
@@ -186,6 +188,8 @@ void loadConfigFromFlash() {
             preferences.getFloat(MAX_TEMP_KEY, DEFAULT_TEMP_THRESHOLD);
         system_config.max_humidity_threshold =
             preferences.getFloat(MAX_HUM_KEY, DEFAULT_HUM_THRESHOLD);
+        system_config.min_humidity_threshold =
+            preferences.getFloat(MIN_HUM_KEY, DEFAULT_MIN_HUM_THRESHOLD);
 
         xSemaphoreGive(config_mutex);
     }
@@ -209,6 +213,7 @@ void saveConfigToFlash() {
         preferences.putShort(READ_INTERVAL_KEY, system_config.read_interval_ms);
         preferences.putFloat(MAX_TEMP_KEY, system_config.max_temp_threshold);
         preferences.putFloat(MAX_HUM_KEY, system_config.max_humidity_threshold);
+        preferences.putFloat(MIN_HUM_KEY, system_config.min_humidity_threshold);
 
         xSemaphoreGive(config_mutex);
     }
