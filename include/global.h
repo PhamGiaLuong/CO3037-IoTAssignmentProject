@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <Wire.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -13,6 +14,7 @@
 #define DEFAULT_READ_INTERVAL_MS 2000
 #define DEFAULT_TEMP_THRESHOLD 35.0
 #define DEFAULT_HUM_THRESHOLD 80.0
+#define DEFAULT_MIN_HUM_THRESHOLD 40.0
 #define DEFAULT_CORE_IOT_PORT 1883
 #define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
 #define DEFAULT_AP_SSID_VALUE "ESP32_AP"
@@ -28,6 +30,7 @@
 #define READ_INTERVAL_KEY "read_interval"
 #define MAX_TEMP_KEY "max_temp"
 #define MAX_HUM_KEY "max_hum"
+#define MIN_HUM_KEY "min_hum"
 #define MAX_SSID_LEN 32
 #define MAX_PASS_LEN 64
 #define MAX_TOKEN_LEN 64
@@ -65,6 +68,7 @@ struct SystemConfig {
     int16_t read_interval_ms;
     float max_temp_threshold;
     float max_humidity_threshold;
+    float min_humidity_threshold;
 };
 
 struct SystemState {
@@ -80,6 +84,7 @@ extern SemaphoreHandle_t hum_warning_semaphore;
 extern SemaphoreHandle_t sensor_error_semaphore;
 extern SemaphoreHandle_t wifi_error_semaphore;
 extern SemaphoreHandle_t coreiot_error_semaphore;
+extern SemaphoreHandle_t lcd_sync_semaphore;
 
 // THREAD-SAFE LOGGING MACROS
 // Syntax: LOG_INFO("MODULE_NAME", "Message format", variables...);
