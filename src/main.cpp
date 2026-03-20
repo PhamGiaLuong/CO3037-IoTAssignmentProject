@@ -17,15 +17,13 @@ void setup() {
     loadConfigFromFlash();
 
     // Create tasks
-    xTaskCreate(readSensorTask, "SensorTask", 4096, NULL, 2, NULL);
-    xTaskCreate(neopixelTask, "NeopixelTask", 2048, NULL, 1, NULL);
-    xTaskCreate(lcdDisplayTask, "LCDTask", 4096, NULL, 1, NULL);
     // Task 1: Led blinky
 
     // Task 2: RGB led
-
+    xTaskCreate(neopixelTask, "NeopixelTask", 2048, NULL, 1, NULL);
     // Task 3: Sensor reading & LCD display
-
+    xTaskCreate(readSensorTask, "SensorTask", 4096, NULL, 2, NULL);
+    xTaskCreate(lcdDisplayTask, "LCDTask", 4096, NULL, 1, NULL);
     // Task 4: Web server
     xTaskCreate(networkTask, "Network_Task", 4096, NULL, 5, NULL);
     xTaskCreate(webServerTask, "WebServer_Task", 8192, NULL, 3, NULL);

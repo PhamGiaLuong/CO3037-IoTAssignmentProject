@@ -10,13 +10,13 @@ static float last_lcd_temp = 0.0;
 static float last_lcd_hum = 0.0;
 static uint16_t last_lcd_mode = 0;
 
-bool is_delta_changed(float new_temp, float new_hum) {
+bool isDeltaChanged(float new_temp, float new_hum) {
     return abs(new_temp - last_lcd_temp) >= 0.5 ||
            abs(new_hum - last_lcd_hum) >= 1.0;
 }
 
 // DHT20 CRC calculation based on polynomial 0x31
-uint8_t cal_dht20_crc(uint8_t *data, uint8_t length) {
+uint8_t calDht20CRC(uint8_t *data, uint8_t length) {
     uint8_t crc = 0xFF;
     for (uint8_t i = 0; i < length; i++) {
         crc ^= data[i];
@@ -31,7 +31,7 @@ uint8_t cal_dht20_crc(uint8_t *data, uint8_t length) {
     return crc;
 }
 
-bool read_dht20(float *out_temp, float *out_hum) {
+bool readDht20(float *out_temp, float *out_hum) {
     // 1. Init sensor
     Wire.beginTransmission(DHT20_ADDRESS);
     Wire.write(0xAC);
@@ -60,7 +60,7 @@ bool read_dht20(float *out_temp, float *out_hum) {
         return false;
     }
     // 4. Check CRC
-    uint8_t crc = cal_dht20_crc(data, 6);
+    uint8_t crc = calDht20CRC(data, 6);
     if (crc != data[6]) {
         LOG_ERR("SENSOR", "CRC Checksum failed! Expected: 0x%02X, Got: 0x%02X",
                 data[6], crc);
@@ -80,7 +80,7 @@ bool read_dht20(float *out_temp, float *out_hum) {
     return true;
 }
 
-bool process_sensor_data(float temp, float hum, SensorData *out_data) {
+bool processSensorData(float temp, float hum, SensorData *out_data) {
     // 1. Validate data
     if (isnan(temp) || isnan(hum) || temp < 0 || hum < 0 || temp > 100 ||
         hum > 100.0) {
@@ -123,8 +123,8 @@ SensorData readFromDHT20() {
     float raw_temp = 0.0;
     float raw_hum = 0.0;
 
-    if (read_dht20(&raw_temp, &raw_hum)) {
-        if (process_sensor_data(raw_temp, raw_hum, &data)) {
+    if (readDht20(&raw_temp, &raw_hum)) {
+        if (processSensorData(raw_temp, raw_hum, &data)) {
             data.is_dht20_ok = true;
             return data;
         }
@@ -160,7 +160,7 @@ void readSensorTask(void *pvParameters) {
 
             uint16_t current_mode = getActiveErrorFlags();
             bool is_state_changed = (current_mode != last_lcd_mode);
-            if (is_delta_changed(raw_temp, raw_hum) || is_state_changed) {
+            if (isDeltaChanged(raw_temp, raw_hum) || is_state_changed) {
                 last_lcd_temp = raw_temp;
                 last_lcd_hum = raw_hum;
                 last_lcd_mode = current_mode;

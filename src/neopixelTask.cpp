@@ -8,7 +8,7 @@
 
 Adafruit_NeoPixel strip(NEOPIXEL_NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-void set_neopixel_color(uint32_t color) {
+void setNeopixelColor(uint32_t color) {
     for (int i = 0; i < strip.numPixels(); i++) {
         strip.setPixelColor(i, color);
     }
@@ -23,15 +23,15 @@ void neopixelTask(void *pvParameters) {
         uint32_t error_flag = getActiveErrorFlags();
         if (error_flag & EVENT_SENSOR_ERROR) {
             neo_state = !neo_state;
-            set_neopixel_color(neo_state ? COLOR_RED : COLOR_OFF);
+            setNeopixelColor(neo_state ? COLOR_RED : COLOR_OFF);
             vTaskDelay(pdMS_TO_TICKS(500));
             continue;
         } else if (error_flag & EVENT_HUM_LOW) {
-            set_neopixel_color(COLOR_YELLOW);
+            setNeopixelColor(COLOR_YELLOW);
         } else if (error_flag & EVENT_HUM_HIGH) {
-            set_neopixel_color(COLOR_BLUE);
+            setNeopixelColor(COLOR_BLUE);
         } else {
-            set_neopixel_color(COLOR_GREEN);
+            setNeopixelColor(COLOR_GREEN);
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
