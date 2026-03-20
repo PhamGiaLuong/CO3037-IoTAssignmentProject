@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <Wire.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"

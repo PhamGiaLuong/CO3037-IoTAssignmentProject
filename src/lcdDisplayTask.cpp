@@ -20,8 +20,11 @@ void lcdDisplayTask(void *pvParameters) {
             if (!checkSystemErrorFlag(EVENT_LCD_ERROR)) {
                 LOG_WARN("LCD", "LCD I2C error: %d", Wire.endTransmission());
                 setSystemErrorFlag(EVENT_LCD_ERROR);
+                SensorData data = getSensorData();
+                data.is_lcd_ok = false;
             }
 
+            vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
 
@@ -33,12 +36,15 @@ void lcdDisplayTask(void *pvParameters) {
             lcd.backlight();
         }
 
-        bool is_new_data =
-            (xSemaphoreTake(lcd_sync_semaphore, wait_time) == pdTRUE);
-
         SensorData data = getSensorData();
         SystemConfig config = getSystemConfig();
-        data.is_lcd_ok = true;
+        if (data.is_lcd_ok == false) {
+            data.is_lcd_ok = true;
+            setSensorData(data);
+        }
+
+        bool is_new_data =
+            (xSemaphoreTake(lcd_sync_semaphore, wait_time) == pdTRUE);
 
         if (data.current_temperature > config.max_temp_threshold ||
             data.current_temperature < 15.0 ||
@@ -61,10 +67,11 @@ void lcdDisplayTask(void *pvParameters) {
 
             lcd.setCursor(0, 1);
             if (current_mode == MODE_CRITICAL) {
-                lcd.printf("T:%2.0fC H:%2.0f%%       ", data.current_humidity);
+                lcd.printf("T:%2.0fC H:%2.0f%%       ",
+                           data.current_temperature, data.current_humidity);
 
             } else {
-                lcd.printf("H: %4.1f %       ", data.current_temperature);
+                lcd.printf("H: %4.1f %%       ", data.current_humidity);
             }
 
             if (current_mode == MODE_NORMAL) {
@@ -82,11 +89,12 @@ void lcdDisplayTask(void *pvParameters) {
             if (current_mode == MODE_WARNING) {
                 lcd.setCursor(0, 0);
                 if (blink_state) {
-                    lcd.printf("*WARN* T:2.0f C  ", data.current_temperature);
+                    lcd.printf("*WARN* T:%2.0f C       ",
+                               data.current_temperature);
                 } else {
-                    lcd.printf("Temp: %2.0f C  ", data.current_temperature);
+                    lcd.printf("T: %2.0f C       ", data.current_temperature);
                 }
-            } else if (current_mode = MODE_CRITICAL) {
+            } else if (current_mode == MODE_CRITICAL) {
                 if (blink_state) {
                     lcd.backlight();
                 } else {

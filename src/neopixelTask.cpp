@@ -6,6 +6,8 @@
 #define COLOR_BLUE strip.Color(0, 0, 255)
 #define COLOR_YELLOW strip.Color(255, 255, 0)
 
+Adafruit_NeoPixel strip(NEOPIXEL_NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
 void set_neopixel_color(uint32_t color) {
     for (int i = 0; i < strip.numPixels(); i++) {
         strip.setPixelColor(i, color);

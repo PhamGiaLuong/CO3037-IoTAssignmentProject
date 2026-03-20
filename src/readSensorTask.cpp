@@ -38,6 +38,8 @@ bool read_dht20(float *out_temp, float *out_hum) {
     Wire.write(0x33);
     Wire.write(0x00);
     if (Wire.endTransmission() != 0) {
+        LOG_ERR("SENSOR", "I2C Failed at init! Error Code: %d",
+                Wire.endTransmission());
         return false;
     }
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -150,6 +152,9 @@ void readSensorTask(void *pvParameters) {
                 LOG_WARN("SENSOR", "Error reading from sensor");
             }
         } else {
+            LOG_INFO("SENSOR",
+                     "Done read! Temperature: %.1f C | Humidity: %.1f %%",
+                     raw_temp, raw_hum);
             clearSystemErrorFlag(EVENT_SENSOR_ERROR);
             SensorData data = {raw_temp, raw_hum, sensor_ok, lcd_ok};
 
@@ -172,27 +177,35 @@ void readSensorTask(void *pvParameters) {
                     LOG_WARN("SENSOR", "High Temp warning: %.2f C", raw_temp);
                 }
             } else {
-                clearSystemErrorFlag(EVENT_TEMP_WARNING);
+                if (checkSystemErrorFlag(EVENT_TEMP_WARNING)) {
+                    clearSystemErrorFlag(EVENT_TEMP_WARNING);
+                    xSemaphoreGive(temp_warning_semaphore);
+                    LOG_INFO("SENSOR", "Temperature back to normal: %.2f C",
+                             raw_temp);
+                }
             }
 
             if (raw_hum > config.max_humidity_threshold) {
                 if (!checkSystemErrorFlag(EVENT_HUM_HIGH)) {
                     setSystemErrorFlag(EVENT_HUM_HIGH);
+                    clearSystemErrorFlag(EVENT_HUM_LOW);
                     xSemaphoreGive(hum_warning_semaphore);
                     LOG_WARN("SENSOR", "High Hum warning: %.2f %%", raw_hum);
-                } else {
-                    clearSystemErrorFlag(EVENT_HUM_HIGH);
                 }
             } else if (raw_hum < config.min_humidity_threshold) {
                 if (!checkSystemErrorFlag(EVENT_HUM_LOW)) {
                     setSystemErrorFlag(EVENT_HUM_LOW);
+                    clearSystemErrorFlag(EVENT_HUM_HIGH);
                     xSemaphoreGive(hum_warning_semaphore);
                     LOG_WARN("SENSOR", "Low Hum warning: %.2f %%", raw_hum);
-                } else {
-                    clearSystemErrorFlag(EVENT_HUM_LOW);
                 }
             } else {
-                clearSystemErrorFlag(EVENT_HUM_HIGH | EVENT_HUM_LOW);
+                if (checkSystemErrorFlag(EVENT_HUM_HIGH | EVENT_HUM_LOW)) {
+                    clearSystemErrorFlag(EVENT_HUM_HIGH | EVENT_HUM_LOW);
+                    xSemaphoreGive(hum_warning_semaphore);
+                    LOG_INFO("SENSOR", "Humidity back to normal: %.2f %%",
+                             raw_hum);
+                }
             }
         }
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(config.read_interval_ms));
