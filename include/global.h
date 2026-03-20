@@ -15,20 +15,27 @@
 #define DEFAULT_TEMP_THRESHOLD 35.0
 #define DEFAULT_HUM_THRESHOLD 80.0
 #define DEFAULT_MIN_HUM_THRESHOLD 40.0
+#define DEFAULT_SEND_INTERVAL_MS 5000
+#define DEFAULT_MAX_TEMP_THRESHOLD 35.0
+#define DEFAULT_MIN_TEMP_THRESHOLD 20.0
+#define DEFAULT_MAX_HUM_THRESHOLD 80.0
+#define DEFAULT_MIN_HUM_THRESHOLD 30.0
 #define DEFAULT_CORE_IOT_PORT 1883
 #define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
-#define DEFAULT_AP_SSID_VALUE "ESP32_AP"
+#define DEFAULT_AP_SSID_VALUE "ESP32_IoT_AP"
 #define DEFAULT_AP_PASS_VALUE "11335588"
-#define PREFERENCES_NAMESPACE "iot_config"
+#define PREFERENCES_NAMESPACE "co3037_ns"
 #define AP_SSID_KEY "ap_ssid"
 #define AP_PASS_KEY "ap_pass"
 #define WIFI_SSID_KEY "wifi_ssid"
 #define WIFI_PASS_KEY "wifi_pass"
-#define CORE_IOT_TOKEN_KEY "core_iot_token"
-#define CORE_IOT_SERVER_KEY "core_iot_server"
-#define CORE_IOT_PORT_KEY "core_iot_port"
-#define READ_INTERVAL_KEY "read_interval"
+#define CORE_IOT_TOKEN_KEY "c_iot_token"
+#define CORE_IOT_SERVER_KEY "c_iot_server"
+#define CORE_IOT_PORT_KEY "c_iot_port"
+#define READ_INTERVAL_KEY "interval"
+#define SEND_INTERVAL_KEY "send_int"
 #define MAX_TEMP_KEY "max_temp"
+#define MIN_TEMP_KEY "min_temp"
 #define MAX_HUM_KEY "max_hum"
 #define MIN_HUM_KEY "min_hum"
 #define MAX_SSID_LEN 32
@@ -65,8 +72,10 @@ struct SystemConfig {
     char core_iot_token[MAX_TOKEN_LEN];
     char core_iot_server[MAX_SERVER_LEN];
     int16_t core_iot_port;
+    int16_t send_interval_ms;
     int16_t read_interval_ms;
     float max_temp_threshold;
+    float min_temp_threshold;
     float max_humidity_threshold;
     float min_humidity_threshold;
 };
@@ -78,6 +87,11 @@ struct SystemState {
     bool is_coreiot_connected;
 };
 
+struct MlState {
+    char prediction[32];
+    float confidence;
+};
+
 // BINARY SEMAPHORES (Event Signaling)
 extern SemaphoreHandle_t temp_warning_semaphore;
 extern SemaphoreHandle_t hum_warning_semaphore;
@@ -85,6 +99,8 @@ extern SemaphoreHandle_t sensor_error_semaphore;
 extern SemaphoreHandle_t wifi_error_semaphore;
 extern SemaphoreHandle_t coreiot_error_semaphore;
 extern SemaphoreHandle_t lcd_sync_semaphore;
+extern SemaphoreHandle_t switch_to_ap_semaphore;
+extern SemaphoreHandle_t switch_to_sta_semaphore;
 
 // THREAD-SAFE LOGGING MACROS
 // Syntax: LOG_INFO("MODULE_NAME", "Message format", variables...);
@@ -133,6 +149,10 @@ void setSystemConfig(const SystemConfig& config);
 // System State API
 SystemState getSystemState();
 void setSystemState(const SystemState& state);
+
+// ML State API
+MlState getMlState();
+void setMlState(const MlState& state);
 
 // Event Management API
 void setSystemErrorFlag(uint16_t flag);
