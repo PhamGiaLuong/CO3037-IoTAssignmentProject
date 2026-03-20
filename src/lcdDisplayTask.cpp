@@ -1,6 +1,7 @@
 #include "lcdDisplayTask.h"
 
 #define LCD_I2C_ADDR 0x27
+#define LCD_I2C_ADDR2 0x26
 
 enum LcdMode { MODE_NORMAL, MODE_WARNING, MODE_CRITICAL };
 
