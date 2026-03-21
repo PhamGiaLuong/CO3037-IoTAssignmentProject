@@ -101,6 +101,7 @@ extern SemaphoreHandle_t coreiot_error_semaphore;
 extern SemaphoreHandle_t lcd_sync_semaphore;
 extern SemaphoreHandle_t switch_to_ap_semaphore;
 extern SemaphoreHandle_t switch_to_sta_semaphore;
+extern SemaphoreHandle_t led_sync_semaphore;
 
 // THREAD-SAFE LOGGING MACROS
 // Syntax: LOG_INFO("MODULE_NAME", "Message format", variables...);

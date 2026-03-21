@@ -1,6 +1,7 @@
 #include "global.h"
 #include "hardware_manager.h"
 #include "lcdDisplayTask.h"
+#include "led_blinky.h"
 #include "neopixelTask.h"
 #include "network_manager.h"
 #include "readSensorTask.h"
@@ -18,7 +19,7 @@ void setup() {
 
     // Create tasks
     // Task 1: Led blinky
-
+    xTaskCreate(ledBlinkyTask, "LedBlinkyTask", 2048, NULL, 2, NULL);
     // Task 2: RGB led
     xTaskCreate(neopixelTask, "NeopixelTask", 2048, NULL, 1, NULL);
     // Task 3: Sensor reading & LCD display

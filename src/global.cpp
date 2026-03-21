@@ -28,6 +28,7 @@ SemaphoreHandle_t coreiot_error_semaphore = NULL;
 SemaphoreHandle_t lcd_sync_semaphore = NULL;
 SemaphoreHandle_t switch_to_ap_semaphore = NULL;
 SemaphoreHandle_t switch_to_sta_semaphore = NULL;
+SemaphoreHandle_t led_sync_semaphore = NULL;
 
 // SYSTEM INITIALIZATION
 void initGlobal() {
@@ -48,6 +49,7 @@ void initGlobal() {
     lcd_sync_semaphore = xSemaphoreCreateBinary();
     switch_to_ap_semaphore = xSemaphoreCreateBinary();
     switch_to_sta_semaphore = xSemaphoreCreateBinary();
+    led_sync_semaphore = xSemaphoreCreateBinary();
 
     LOG_INFO("GLOBAL", "Global RTOS objects initialized");
 }
@@ -140,14 +142,24 @@ void setMlState(const MlState& state) {
 // Event Management API
 void setSystemErrorFlag(uint16_t flag) {
     if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
-        system_state.active_error_flags |= flag;
+        if ((system_state.active_error_flags & flag) != flag) {
+            system_state.active_error_flags |= flag;
+            if (led_sync_semaphore != NULL) {
+                xSemaphoreGive(led_sync_semaphore);
+            }
+        }
         xSemaphoreGive(state_mutex);
     }
 }
 
 void clearSystemErrorFlag(uint16_t flag) {
     if (xSemaphoreTake(state_mutex, portMAX_DELAY) == pdTRUE) {
-        system_state.active_error_flags &= ~flag;
+        if ((system_state.active_error_flags & flag) != 0) {
+            system_state.active_error_flags &= ~flag;
+            if (led_sync_semaphore != NULL) {
+                xSemaphoreGive(led_sync_semaphore);
+            }
+        }
         xSemaphoreGive(state_mutex);
     }
 }
