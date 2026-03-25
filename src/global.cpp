@@ -219,8 +219,6 @@ void loadConfigFromFlash() {
             preferences.getFloat(MAX_HUM_KEY, DEFAULT_MAX_HUM_THRESHOLD);
         system_config.min_humidity_threshold =
             preferences.getFloat(MIN_HUM_KEY, DEFAULT_MIN_HUM_THRESHOLD);
-        system_config.min_humidity_threshold =
-            preferences.getFloat(MIN_HUM_KEY, DEFAULT_MIN_HUM_THRESHOLD);
 
         xSemaphoreGive(config_mutex);
     }

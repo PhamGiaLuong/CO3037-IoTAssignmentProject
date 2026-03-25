@@ -12,14 +12,11 @@
 
 // MACROS & CONSTANTS
 #define DEFAULT_READ_INTERVAL_MS 2000
-#define DEFAULT_TEMP_THRESHOLD 35.0
-#define DEFAULT_HUM_THRESHOLD 80.0
-#define DEFAULT_MIN_HUM_THRESHOLD 40.0
 #define DEFAULT_SEND_INTERVAL_MS 5000
+#define DEFAULT_MAX_HUM_THRESHOLD 80.0
+#define DEFAULT_MIN_HUM_THRESHOLD 40.0
 #define DEFAULT_MAX_TEMP_THRESHOLD 35.0
 #define DEFAULT_MIN_TEMP_THRESHOLD 20.0
-#define DEFAULT_MAX_HUM_THRESHOLD 80.0
-#define DEFAULT_MIN_HUM_THRESHOLD 30.0
 #define DEFAULT_CORE_IOT_PORT 1883
 #define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
 #define DEFAULT_AP_SSID_VALUE "ESP32_IoT_AP"
@@ -29,7 +26,7 @@
 #define AP_PASS_KEY "ap_pass"
 #define WIFI_SSID_KEY "wifi_ssid"
 #define WIFI_PASS_KEY "wifi_pass"
-#define CORE_IOT_TOKEN_KEY "c_iot_token"
+#define CORE_IOT_TOKEN_KEY "0mpjdux3sh40nhu4qrpb"
 #define CORE_IOT_SERVER_KEY "c_iot_server"
 #define CORE_IOT_PORT_KEY "c_iot_port"
 #define READ_INTERVAL_KEY "interval"
@@ -42,14 +39,15 @@
 #define MAX_PASS_LEN 64
 #define MAX_TOKEN_LEN 64
 #define MAX_SERVER_LEN 64
-#define EVENT_TEMP_WARNING (1 << 0)     // 0x112
+#define EVENT_TEMP_LOW (1 << 0)         // 0x112
 #define EVENT_SENSOR_ERROR (1 << 1)     // 0x121, 0x221
 #define EVENT_LCD_ERROR (1 << 2)        // 0x122
 #define EVENT_NET_AP_MODE (1 << 3)      // 0x131
 #define EVENT_COREIOT_DISCONN (1 << 4)  // 0x132
 #define EVENT_WIFI_DISCONN (1 << 5)     // 0x133
-#define EVENT_HUM_LOW (1 << 6)          // 0x211
-#define EVENT_HUM_HIGH (1 << 7)         // 0x213
+#define EVENT_HUM_LOW (1 << 7)          // 0x211
+#define EVENT_HUM_HIGH (1 << 8)         // 0x213
+#define EVENT_TEMP_HIGH (1 << 9)        // 0x113
 
 // STRUCTS
 struct SensorData {
