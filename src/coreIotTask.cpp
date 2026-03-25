@@ -32,14 +32,14 @@ String buildJsonPlayload() {
 }
 
 void coreIotTask(void* pvParematers) {
-    LOG_INFO("Iot", "Core IoT task started");
+    LOG_INFO("IOT", "Core IoT task started");
     String client_id =
         "ColdChanin_GW_" + String((uint32_t)ESP.getEfuseMac(), HEX);
 
     while (1) {
         SystemConfig config = getSystemConfig();
         if (checkSystemErrorFlag(EVENT_WIFI_DISCONN)) {
-            LOG_WARN("Iot", "Wifi disconnected, cannot publish data");
+            LOG_WARN("IOT", "Wifi disconnected, cannot publish data");
 
             vTaskDelay(pdMS_TO_TICKS(2000));
             continue;
@@ -48,14 +48,14 @@ void coreIotTask(void* pvParematers) {
         mqtt_client.setServer(config.core_iot_server, config.core_iot_port);
 
         if (!mqtt_client.connected()) {
-            LOG_INFO("Iot", "Connecting to MQTT broker...");
+            LOG_INFO("IOT", "Connecting to MQTT broker...");
             if (mqtt_client.connect(client_id.c_str(), config.core_iot_token,
                                     NULL)) {
-                LOG_INFO("Iot", "Connected MQTT");
+                LOG_INFO("IOT", "Connected MQTT");
                 clearSystemErrorFlag(EVENT_COREIOT_DISCONN);
             } else {
                 if (!checkSystemErrorFlag(EVENT_COREIOT_DISCONN)) {
-                    LOG_ERR("Iot", "MQTT connected fail RC=%d",
+                    LOG_ERR("IOT", "MQTT connected fail RC=%d",
                             mqtt_client.state());
                     setSystemErrorFlag(EVENT_COREIOT_DISCONN);
                 }
@@ -74,13 +74,13 @@ void coreIotTask(void* pvParematers) {
 
         if (mqtt_client.publish(topic_telemetry, pay_load.c_str())) {
             if (is_urgen_event) {
-                LOG_WARN("Iot", "Published urgent event data: %s",
+                LOG_WARN("IOT", "Published urgent event data: %s",
                          pay_load.c_str());
             } else {
-                LOG_INFO("Iot", "Published data: %s", pay_load.c_str());
+                LOG_INFO("IOT", "Published data: %s", pay_load.c_str());
             }
         } else {
-            LOG_ERR("Iot", "Failed to publish data");
+            LOG_ERR("IOT", "Failed to publish data");
         }
     }
 }

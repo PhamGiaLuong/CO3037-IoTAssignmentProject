@@ -1,7 +1,9 @@
 #include "lcdDisplayTask.h"
 
+// Error modes for display state
 enum LcdMode { MODE_NORMAL, MODE_WARNING, MODE_CRITICAL };
 
+// Scan I2C address to optimize
 uint8_t scanLCDAddress() {
     for (uint8_t addr = 0; addr < 127; addr++) {
         LOG_INFO("LCD", "Scanning I2C address: 0x%02X", addr);
@@ -21,6 +23,7 @@ uint8_t scanLCDAddress() {
 void lcdDisplayTask(void *pvParameters) {
     LOG_INFO("LCD", "LCD display task started");
 
+    // Call func to scan address
     uint8_t default_addr = 0x00;
     while (default_addr == 0x00) {
         default_addr = scanLCDAddress();
@@ -35,6 +38,7 @@ void lcdDisplayTask(void *pvParameters) {
     LOG_INFO("LCD", "SUCCESS! LCD initialized at address: 0x%02X",
              default_addr);
 
+    // Cấp phát địa chỉ mới vừa đọc được
     LiquidCrystal_I2C *lcd = new LiquidCrystal_I2C(default_addr, 16, 2);
     lcd->begin();
     lcd->backlight();
@@ -66,14 +70,13 @@ void lcdDisplayTask(void *pvParameters) {
             lcd->backlight();
         }
 
+        // Checking semaphore when temp - previous_temp = 0.5, hum -
+        // previous_hum = 1.0 or context changing
         bool is_new_data =
             (xSemaphoreTake(lcd_sync_semaphore, wait_time) == pdTRUE);
-        // bool is_new_data = !is_new_data;
+
         SensorData data = getSensorData();
-        // SensorData data = {40.0, 80.0, true, true};
-        // LOG_INFO("LCD", "Current Sensor Data - Temp: %.1f C, Humidity: %.1f
-        // %%",
-        //          data.current_temperature, data.current_humidity);
+
         SystemConfig config = getSystemConfig();
         uint32_t current_flag = getActiveErrorFlags();
         SystemState current_state = getSystemState();
@@ -82,15 +85,33 @@ void lcdDisplayTask(void *pvParameters) {
             setSensorData(data);
         }
 
-        if (data.current_temperature >= config.max_temp_threshold ||
-            data.current_temperature <= config.min_temp_threshold ||
-            data.current_humidity >= config.max_humidity_threshold ||
-            data.current_humidity <= config.min_humidity_threshold) {
+        // 1. TÍNH TOÁN DẢI ĐO (RANGE) VÀ BIÊN ĐỘ (MARGIN)
+        // 0.20 = 20% dải đo sẽ được dùng làm biên độ để xác định ngưỡng cảnh
+        // báo động (dynamic warning threshold)
+        float temp_range =
+            config.max_temp_threshold - config.min_temp_threshold;
+        float temp_margin = temp_range * 0.20;
+
+        float hum_range =
+            config.max_humidity_threshold - config.min_humidity_threshold;
+        float hum_margin = hum_range * 0.20;
+
+        // 2. TÍNH TOÁN 4 NGƯỠNG WARNING ĐỘNG
+        float warn_temp_high = config.max_temp_threshold - temp_margin;
+        float warn_temp_low = config.min_temp_threshold + temp_margin;
+        float warn_hum_high = config.max_humidity_threshold - hum_margin;
+        float warn_hum_low = config.min_humidity_threshold + hum_margin;
+
+        // 3. XÉT DUYỆT TRẠNG THÁI (State Machine)
+        if ((current_flag & EVENT_TEMP_HIGH) ||
+            (current_flag & EVENT_TEMP_LOW) ||
+            (current_flag & EVENT_HUM_HIGH) || (current_flag & EVENT_HUM_LOW) ||
+            (current_flag & EVENT_SENSOR_ERROR)) {
             current_mode = MODE_CRITICAL;
-        } else if (data.current_temperature > ((config.max_temp_threshold +
-                                                config.min_temp_threshold) /
-                                               2) ||
-                   data.current_humidity < 50.0) {
+        } else if ((data.current_temperature >= warn_temp_high) ||
+                   (data.current_temperature <= warn_temp_low) ||
+                   (data.current_humidity >= warn_hum_high) ||
+                   (data.current_humidity <= warn_hum_low)) {
             current_mode = MODE_WARNING;
         } else {
             current_mode = MODE_NORMAL;
@@ -109,10 +130,10 @@ void lcdDisplayTask(void *pvParameters) {
                 strlcpy(error_msg, "HUM HI ", sizeof(error_msg));
             else if (current_flag & EVENT_HUM_LOW)
                 strlcpy(error_msg, "HUM LO ", sizeof(error_msg));
-            else if (current_flag & EVENT_WIFI_DISCONN)
-                strlcpy(error_msg, "WIFI   ", sizeof(error_msg));
-            else if (current_flag & EVENT_COREIOT_DISCONN)
-                strlcpy(error_msg, "COREIOT", sizeof(error_msg));
+            // else if (current_flag & EVENT_WIFI_DISCONN)
+            //     strlcpy(error_msg, "WIFI   ", sizeof(error_msg));
+            // else if (current_flag & EVENT_COREIOT_DISCONN)
+            //     strlcpy(error_msg, "COREIOT", sizeof(error_msg));
             else
                 strlcpy(error_msg, "       ", sizeof(error_msg));
 
@@ -136,17 +157,17 @@ void lcdDisplayTask(void *pvParameters) {
             lcd->printf(error_msg);
 
             lcd->setCursor(0, 1);
-            lcd->printf("T:%4.1f H:%4.1f", data.current_temperature,
+            lcd->printf("T:%4.1fC  H:%4.1f%%", data.current_temperature,
                         data.current_humidity);
 
-            lcd->setCursor(14, 1);
-            if (current_state.is_ap_mode) {
-                lcd->print("AP");
-            } else if (current_state.is_wifi_connected) {
-                lcd->print("WF");
-            } else {
-                lcd->print("  ");
-            }
+            // lcd->setCursor(14, 1);
+            // if (current_state.is_ap_mode) {
+            //     lcd->print("AP");
+            // } else if (current_state.is_wifi_connected) {
+            //     lcd->print("WF");
+            // } else {
+            //     lcd->print("  ");
+            // }
 
             blink_state = true;
         } else {
@@ -166,6 +187,5 @@ void lcdDisplayTask(void *pvParameters) {
                 }
             }
         }
-        // vTaskDelay(wait_time);
     }
 }

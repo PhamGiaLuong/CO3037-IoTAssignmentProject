@@ -1,16 +1,22 @@
 #include "readSensorTask.h"
-#define FILTER_SIZE 5
-// #define DHT20_ADDRESS 0x38
 
+// Size buffer for filter
+#define FILTER_SIZE 5
+// Default address dht20
+#define DHT20_ADDRESS 0x38
+
+// Declaration variable for
+// filter
 static float temp_buffer[FILTER_SIZE] = {0};
 static float hum_buffer[FILTER_SIZE] = {0};
 static int buffer_index = 0;
 static bool is_buffer_full = false;
+// give lcd semaphore
 static float last_lcd_temp = 0.0;
 static float last_lcd_hum = 0.0;
 static uint16_t last_lcd_mode = 0;
-static int dht_addr = 0x38;
 
+// Checking semaphore when temp - previous_temp = 0.5, hum - previous_hum = 1.0
 bool isDeltaChanged(float new_temp, float new_hum) {
     return abs(new_temp - last_lcd_temp) >= 0.5 ||
            abs(new_hum - last_lcd_hum) >= 1.0;
@@ -32,9 +38,10 @@ uint8_t calDht20CRC(uint8_t *data, uint8_t length) {
     return crc;
 }
 
+// Correct data
 bool readDht20(float *out_temp, float *out_hum) {
     // 1. Init sensor
-    Wire.beginTransmission(dht_addr);
+    Wire.beginTransmission(DHT20_ADDRESS);
     Wire.write(0xAC);
     Wire.write(0x33);
     Wire.write(0x00);
@@ -45,7 +52,7 @@ bool readDht20(float *out_temp, float *out_hum) {
     }
     vTaskDelay(pdMS_TO_TICKS(100));
     // 2. Read 7 bit data
-    Wire.requestFrom(dht_addr, 7);
+    Wire.requestFrom(DHT20_ADDRESS, 7);
     if (Wire.available() < 7) {
         return false;
     }
@@ -81,6 +88,7 @@ bool readDht20(float *out_temp, float *out_hum) {
     return true;
 }
 
+// Checking threshold and filter
 bool processSensorData(float temp, float hum, SensorData *out_data) {
     // 1. Validate data
     if (isnan(temp) || isnan(hum) || temp < 0 || hum < 0 || temp > 100 ||
@@ -117,6 +125,7 @@ bool processSensorData(float temp, float hum, SensorData *out_data) {
     return true;
 }
 
+// Read data from sensor
 SensorData readFromDHT20() {
     SensorData data;
     data.is_dht20_ok = false;
@@ -134,12 +143,14 @@ SensorData readFromDHT20() {
     }
     return data;
 }
+
 void readSensorTask(void *pvParameters) {
     LOG_INFO("SENSOR", "Sensor reading task started");
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     while (1) {
         SystemConfig config = getSystemConfig();
+        // Read data from sensor then assign to SensorData
         SensorData raw_data = readFromDHT20();
         float raw_temp = raw_data.current_temperature;
         float raw_hum = raw_data.current_humidity;
@@ -159,6 +170,7 @@ void readSensorTask(void *pvParameters) {
             clearSystemErrorFlag(EVENT_SENSOR_ERROR);
             SensorData data = {raw_temp, raw_hum, sensor_ok, lcd_ok};
 
+            // Give semaphore for lcd
             uint16_t current_mode = getActiveErrorFlags();
             bool is_state_changed = (current_mode != last_lcd_mode);
             if (isDeltaChanged(raw_temp, raw_hum) || is_state_changed) {
@@ -171,6 +183,7 @@ void readSensorTask(void *pvParameters) {
 
             setSensorData(data);
 
+            // Set system_error_flag for temp and hum
             if (raw_temp > config.max_temp_threshold) {
                 if (!checkSystemErrorFlag(EVENT_TEMP_HIGH)) {
                     setSystemErrorFlag(EVENT_TEMP_HIGH);
