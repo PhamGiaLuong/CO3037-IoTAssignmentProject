@@ -1,21 +1,51 @@
 #include "lcdDisplayTask.h"
 
-#define LCD_I2C_ADDR 0x27
-
 enum LcdMode { MODE_NORMAL, MODE_WARNING, MODE_CRITICAL };
 
-LiquidCrystal_I2C lcd(LCD_I2C_ADDR, 16, 2);
+uint8_t scanLCDAddress() {
+    for (uint8_t addr = 0; addr < 127; addr++) {
+        LOG_INFO("LCD", "Scanning I2C address: 0x%02X", addr);
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            if (addr == 0x38) {
+                continue;
+            }
+
+            LOG_INFO("LCD", "Found LCD at address: 0x%02X", addr);
+            return addr;
+        }
+    }
+    return 0x00;
+}
 
 void lcdDisplayTask(void *pvParameters) {
     LOG_INFO("LCD", "LCD display task started");
-    lcd.begin();
-    lcd.backlight();
+
+    uint8_t default_addr = 0x00;
+    while (default_addr == 0x00) {
+        default_addr = scanLCDAddress();
+        if (default_addr == 0x00) {
+            LOG_ERR("LCD", "LCD not found");
+            setSystemErrorFlag(EVENT_LCD_ERROR);
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+    }
+
+    clearSystemErrorFlag(EVENT_LCD_ERROR);
+    LOG_INFO("LCD", "SUCCESS! LCD initialized at address: 0x%02X",
+             default_addr);
+
+    LiquidCrystal_I2C *lcd = new LiquidCrystal_I2C(default_addr, 16, 2);
+    lcd->begin();
+    lcd->backlight();
 
     TickType_t wait_time = portMAX_DELAY;
     bool blink_state = false;
     LcdMode current_mode = MODE_NORMAL;
+
+    static char error_msg[8];
     while (1) {
-        Wire.beginTransmission(LCD_I2C_ADDR);
+        Wire.beginTransmission(default_addr);
         if (Wire.endTransmission() != 0) {
             if (!checkSystemErrorFlag(EVENT_LCD_ERROR)) {
                 LOG_WARN("LCD", "LCD I2C error: %d", Wire.endTransmission());
@@ -32,25 +62,34 @@ void lcdDisplayTask(void *pvParameters) {
             LOG_INFO("LCD", "LCD I2C restored");
             clearSystemErrorFlag(EVENT_LCD_ERROR);
 
-            lcd.begin();
-            lcd.backlight();
+            lcd->begin();
+            lcd->backlight();
         }
 
+        bool is_new_data =
+            (xSemaphoreTake(lcd_sync_semaphore, wait_time) == pdTRUE);
+        // bool is_new_data = !is_new_data;
         SensorData data = getSensorData();
+        // SensorData data = {40.0, 80.0, true, true};
+        // LOG_INFO("LCD", "Current Sensor Data - Temp: %.1f C, Humidity: %.1f
+        // %%",
+        //          data.current_temperature, data.current_humidity);
         SystemConfig config = getSystemConfig();
+        uint32_t current_flag = getActiveErrorFlags();
+        SystemState current_state = getSystemState();
         if (data.is_lcd_ok == false) {
             data.is_lcd_ok = true;
             setSensorData(data);
         }
 
-        bool is_new_data =
-            (xSemaphoreTake(lcd_sync_semaphore, wait_time) == pdTRUE);
-
-        if (data.current_temperature > config.max_temp_threshold ||
-            data.current_temperature < 15.0 ||
-            data.current_humidity > config.max_humidity_threshold) {
+        if (data.current_temperature >= config.max_temp_threshold ||
+            data.current_temperature <= config.min_temp_threshold ||
+            data.current_humidity >= config.max_humidity_threshold ||
+            data.current_humidity <= config.min_humidity_threshold) {
             current_mode = MODE_CRITICAL;
-        } else if (data.current_temperature > 28.0 ||
+        } else if (data.current_temperature > ((config.max_temp_threshold +
+                                                config.min_temp_threshold) /
+                                               2) ||
                    data.current_humidity < 50.0) {
             current_mode = MODE_WARNING;
         } else {
@@ -58,49 +97,75 @@ void lcdDisplayTask(void *pvParameters) {
         }
 
         if (is_new_data) {
-            lcd.setCursor(0, 0);
-            if (current_mode == MODE_CRITICAL) {
-                lcd.print("!!! CRITICAL !!!");
+            if (current_flag & EVENT_LCD_ERROR)
+                strlcpy(error_msg, "LCD ERR", sizeof(error_msg));
+            else if (current_flag & EVENT_SENSOR_ERROR)
+                strlcpy(error_msg, "SENSOR ", sizeof(error_msg));
+            else if (current_flag & EVENT_TEMP_HIGH)
+                strlcpy(error_msg, "TEMP HI", sizeof(error_msg));
+            else if (current_flag & EVENT_TEMP_LOW)
+                strlcpy(error_msg, "TEMP LO", sizeof(error_msg));
+            else if (current_flag & EVENT_HUM_HIGH)
+                strlcpy(error_msg, "HUM HI ", sizeof(error_msg));
+            else if (current_flag & EVENT_HUM_LOW)
+                strlcpy(error_msg, "HUM LO ", sizeof(error_msg));
+            else if (current_flag & EVENT_WIFI_DISCONN)
+                strlcpy(error_msg, "WIFI   ", sizeof(error_msg));
+            else if (current_flag & EVENT_COREIOT_DISCONN)
+                strlcpy(error_msg, "COREIOT", sizeof(error_msg));
+            else
+                strlcpy(error_msg, "       ", sizeof(error_msg));
+
+            lcd->setCursor(0, 0);
+            switch (current_mode) {
+                case MODE_CRITICAL:
+                    lcd->print("CRITICAL ");
+                    wait_time = pdMS_TO_TICKS(500);
+                    break;
+                case MODE_WARNING:
+                    lcd->print("WARNING  ");
+                    wait_time = pdMS_TO_TICKS(1000);
+                    lcd->backlight();
+                    break;
+                default:
+                    lcd->print("NORMAL   ");
+                    wait_time = portMAX_DELAY;
+                    lcd->backlight();
+                    break;
+            }
+            lcd->printf(error_msg);
+
+            lcd->setCursor(0, 1);
+            lcd->printf("T:%4.1f H:%4.1f", data.current_temperature,
+                        data.current_humidity);
+
+            lcd->setCursor(14, 1);
+            if (current_state.is_ap_mode) {
+                lcd->print("AP");
+            } else if (current_state.is_wifi_connected) {
+                lcd->print("WF");
             } else {
-                lcd.printf("T: %4.1f C       ", data.current_temperature);
+                lcd->print("  ");
             }
 
-            lcd.setCursor(0, 1);
-            if (current_mode == MODE_CRITICAL) {
-                lcd.printf("T:%2.0fC H:%2.0f%%       ",
-                           data.current_temperature, data.current_humidity);
-
-            } else {
-                lcd.printf("H: %4.1f %%       ", data.current_humidity);
-            }
-
-            if (current_mode == MODE_NORMAL) {
-                wait_time = portMAX_DELAY;
-                lcd.backlight();
-            } else if (current_mode == MODE_WARNING) {
-                wait_time = pdMS_TO_TICKS(1000);
-                lcd.backlight();
-            } else if (current_mode == MODE_CRITICAL) {
-                wait_time = pdMS_TO_TICKS(500);
-            }
             blink_state = true;
         } else {
             blink_state = !blink_state;
             if (current_mode == MODE_WARNING) {
-                lcd.setCursor(0, 0);
+                lcd->setCursor(0, 0);
                 if (blink_state) {
-                    lcd.printf("*WARN* T:%2.0f C       ",
-                               data.current_temperature);
+                    lcd->printf("WARNING ");
                 } else {
-                    lcd.printf("T: %2.0f C       ", data.current_temperature);
+                    lcd->printf("        ");
                 }
             } else if (current_mode == MODE_CRITICAL) {
                 if (blink_state) {
-                    lcd.backlight();
+                    lcd->backlight();
                 } else {
-                    lcd.noBacklight();
+                    lcd->noBacklight();
                 }
             }
         }
+        // vTaskDelay(wait_time);
     }
 }

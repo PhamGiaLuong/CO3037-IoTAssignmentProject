@@ -1,6 +1,6 @@
 #include "readSensorTask.h"
 #define FILTER_SIZE 5
-#define DHT20_ADDRESS 0x38
+// #define DHT20_ADDRESS 0x38
 
 static float temp_buffer[FILTER_SIZE] = {0};
 static float hum_buffer[FILTER_SIZE] = {0};
@@ -9,6 +9,7 @@ static bool is_buffer_full = false;
 static float last_lcd_temp = 0.0;
 static float last_lcd_hum = 0.0;
 static uint16_t last_lcd_mode = 0;
+static int dht_addr = 0x38;
 
 bool isDeltaChanged(float new_temp, float new_hum) {
     return abs(new_temp - last_lcd_temp) >= 0.5 ||
@@ -33,7 +34,7 @@ uint8_t calDht20CRC(uint8_t *data, uint8_t length) {
 
 bool readDht20(float *out_temp, float *out_hum) {
     // 1. Init sensor
-    Wire.beginTransmission(DHT20_ADDRESS);
+    Wire.beginTransmission(dht_addr);
     Wire.write(0xAC);
     Wire.write(0x33);
     Wire.write(0x00);
@@ -44,7 +45,7 @@ bool readDht20(float *out_temp, float *out_hum) {
     }
     vTaskDelay(pdMS_TO_TICKS(100));
     // 2. Read 7 bit data
-    Wire.requestFrom(DHT20_ADDRESS, 7);
+    Wire.requestFrom(dht_addr, 7);
     if (Wire.available() < 7) {
         return false;
     }
@@ -171,14 +172,22 @@ void readSensorTask(void *pvParameters) {
             setSensorData(data);
 
             if (raw_temp > config.max_temp_threshold) {
-                if (!checkSystemErrorFlag(EVENT_TEMP_WARNING)) {
-                    setSystemErrorFlag(EVENT_TEMP_WARNING);
+                if (!checkSystemErrorFlag(EVENT_TEMP_HIGH)) {
+                    setSystemErrorFlag(EVENT_TEMP_HIGH);
+                    clearSystemErrorFlag(EVENT_TEMP_LOW);
                     xSemaphoreGive(temp_warning_semaphore);
                     LOG_WARN("SENSOR", "High Temp warning: %.2f C", raw_temp);
                 }
+            } else if (raw_temp < config.min_temp_threshold) {
+                if (!checkSystemErrorFlag(EVENT_TEMP_LOW)) {
+                    setSystemErrorFlag(EVENT_TEMP_LOW);
+                    clearSystemErrorFlag(EVENT_TEMP_HIGH);
+                    xSemaphoreGive(hum_warning_semaphore);
+                    LOG_WARN("SENSOR", "Low Temp warning: %.2f %%", raw_temp);
+                }
             } else {
-                if (checkSystemErrorFlag(EVENT_TEMP_WARNING)) {
-                    clearSystemErrorFlag(EVENT_TEMP_WARNING);
+                if (checkSystemErrorFlag(EVENT_TEMP_HIGH | EVENT_TEMP_LOW)) {
+                    clearSystemErrorFlag(EVENT_TEMP_HIGH | EVENT_TEMP_LOW);
                     xSemaphoreGive(temp_warning_semaphore);
                     LOG_INFO("SENSOR", "Temperature back to normal: %.2f C",
                              raw_temp);
