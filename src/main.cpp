@@ -2,6 +2,7 @@
 #include "hardware_manager.h"
 #include "led_blinky.h"
 #include "network_manager.h"
+#include "tiny_ml.h"
 #include "web_server.h"
 
 void setup() {
@@ -22,7 +23,7 @@ void setup() {
     xTaskCreate(webServerTask, "WebServer_Task", 8192, NULL, 3, NULL);
     xTaskCreate(buzzerTask, "Buzzer_Task", 2048, NULL, 4, NULL);
     // Task 5: ML prediction
-
+    xTaskCreate(tinyMlTask, "TinyML_Task", 4096, NULL, 4, NULL);
     // Task 6: Core IoT communication
 
     LOG_INFO("SETUP", "System setup complete.");
