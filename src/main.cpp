@@ -5,6 +5,7 @@
 #include "neopixelTask.h"
 #include "network_manager.h"
 #include "readSensorTask.h"
+#include "tiny_ml.h"
 #include "web_server.h"
 
 void setup() {
@@ -19,7 +20,8 @@ void setup() {
 
     // Create tasks
     // Task 1: Led blinky
-    xTaskCreate(ledBlinkyTask, "LedBlinkyTask", 2048, NULL, 2, NULL);
+    xTaskCreate(sensorLedBlinkyTask, "SensorLedTask", 2048, NULL, 2, NULL);
+    xTaskCreate(gatewayLedBlinkyTask, "GatewayLedTask", 2048, NULL, 2, NULL);
     // Task 2: RGB led
     xTaskCreate(neopixelTask, "NeopixelTask", 2048, NULL, 1, NULL);
     // Task 3: Sensor reading & LCD display
@@ -30,7 +32,7 @@ void setup() {
     xTaskCreate(webServerTask, "WebServer_Task", 8192, NULL, 3, NULL);
     xTaskCreate(buzzerTask, "Buzzer_Task", 2048, NULL, 4, NULL);
     // Task 5: ML prediction
-
+    xTaskCreate(tinyMlTask, "TinyML_Task", 4096, NULL, 4, NULL);
     // Task 6: Core IoT communication
 
     LOG_INFO("SETUP", "System setup complete.");

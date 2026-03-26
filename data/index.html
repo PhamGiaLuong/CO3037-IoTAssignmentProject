@@ -1,1322 +1,1811 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CCMS Gateway</title>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 IoT Dashboard</title>
     <style>
-        :root {
-            --bg-color: #f0f4f8;
-            --panel-bg: #ffffff;
-            --text-color: #1e293b;
-            --text-muted: #64748b;
-            --accent-color: #0284c7;
-            --accent-hover: #0369a1;
-            --success-color: #10b981;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
-            --border-color: #e2e8f0;
-            --nav-bg: #ffffff;
+      /* --- CSS VARIABLES --- */
+      :root {
+        --bg-color: #f0f4f8;
+        --panel-bg: #ffffff;
+        --text-color: #1e293b;
+        --text-muted: #64748b;
+        --accent-color: #0284c7;
+        --accent-hover: #0369a1;
+        --success-color: #10b981;
+        --danger-color: #ef4444;
+        --warning-color: #f59e0b;
+        --border-color: #e2e8f0;
+        --nav-bg: #ffffff;
+        --cold-color: #0ea5e9;
+      }
+
+      /* --- GLOBAL STYLES --- */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      html,
+      body {
+        overscroll-behavior-y: none;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+      }
+
+      header {
+        background-color: var(--panel-bg);
+        padding: 1rem;
+        text-align: center;
+        border-bottom: 1px solid var(--border-color);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      header h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--accent-color);
+      }
+
+      main {
+        padding: 1.5rem 1rem;
+        padding-bottom: 5rem;
+      }
+
+      /* --- BOTTOM NAVIGATION --- */
+      nav {
+        background-color: var(--nav-bg);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-around;
+        padding: 0.5rem 0;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        z-index: 100;
+      }
+
+      .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: var(--text-muted);
+        text-decoration: none;
+        cursor: pointer;
+        padding: 0.5rem;
+        flex: 1;
+        transition: color 0.2s;
+      }
+
+      .nav-item.active {
+        color: var(--accent-color);
+      }
+      .nav-icon {
+        width: 24px;
+        height: 24px;
+        fill: currentColor;
+        margin-bottom: 4px;
+      }
+
+      /* --- VIEWS TABS --- */
+      .view-section {
+        display: none;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding-bottom: 4rem;
+      }
+
+      .view-section.active {
+        display: block;
+        animation: fadeIn 0.3s ease-in-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Roboto, Helvetica, Arial, sans-serif;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
 
-        html, body {
-            /* height: 100%;
-            width: 100%; */
-            margin: 0;
-            padding: 0;
-            /* overflow: hidden;
-            position: fixed; */
-            overscroll-behavior-y: none;
+      /* --- PANELS & CARDS --- */
+      .panel {
+        background-color: var(--panel-bg);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      h2 {
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .section-title {
+        margin: 1.5rem 0 1rem;
+        font-size: 1.2rem;
+        color: var(--text-muted);
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.5rem;
+      }
+
+      /* Gateway Status Grid */
+      .status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .status-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px dashed var(--border-color);
+      }
+      .status-label {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+      }
+      .status-value {
+        display: flex;
+        align-items: center;
+      }
+      .status-text {
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        background-color: var(--text-muted);
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+      }
+      .status-dot.connected {
+        background-color: var(--success-color);
+        box-shadow: 0 0 8px var(--success-color);
+      }
+      .status-dot.error {
+        background-color: var(--danger-color);
+        box-shadow: 0 0 8px var(--danger-color);
+      }
+
+      /* Node Cards */
+      .node-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+      }
+      .node-card {
+        background: var(--panel-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.25rem;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        position: relative;
+        overflow: hidden;
+      }
+      .node-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+      }
+      .node-card.warning {
+        border-color: var(--danger-color);
+        background: linear-gradient(
+          145deg,
+          rgba(239, 68, 68, 0.05),
+          var(--panel-bg)
+        );
+        animation: pulse-warning 2s infinite ease-in-out;
+      }
+
+      .node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.5rem;
+      }
+      .node-name {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: var(--accent-color);
+      }
+      .node-mac {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-family: monospace;
+      }
+
+      .node-metrics {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 1rem;
+      }
+      .metric {
+        text-align: center;
+      }
+      .metric-val {
+        font-size: 1.5rem;
+        font-weight: bold;
+        font-variant-numeric: tabular-nums;
+      }
+      .metric-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+      .metric.temp .metric-val {
+        color: var(--cold-color);
+      }
+      .metric.hum .metric-val {
+        color: var(--warning-color);
+      }
+      .node-card.warning .metric-val {
+        color: var(--danger-color) !important;
+      }
+
+      .node-footer {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        background: var(--bg-color);
+        padding: 0.5rem;
+        border-radius: 6px;
+      }
+
+      /* --- CONTROLS --- */
+      .gateway-control {
+        display: flex;
+        flex-direction: column;
+        /* gap: 1.5rem; */
+      }
+      .control-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .control-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+      .device-info h3 {
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+      }
+      .device-status {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+
+      /* Toggle Switch */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 56px;
+        height: 30px;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        transition: 0.3s;
+        border-radius: 30px;
+      }
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 3px;
+        bottom: 3px;
+        background-color: var(--text-muted);
+        transition: 0.3s;
+        border-radius: 50%;
+      }
+      input:checked + .slider {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+      }
+      input:checked + .slider:before {
+        transform: translateX(26px);
+        background-color: white;
+      }
+      input:disabled + .slider {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* --- FORMS & SETTINGS --- */
+      .form-group {
+        margin-bottom: 1rem;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-muted);
+      }
+      .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s;
+      }
+      .form-control:focus {
+        outline: none;
+        border-color: var(--accent-color);
+      }
+
+      .btn {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        padding: 0.875rem;
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .btn:hover {
+        background-color: var(--accent-hover);
+      }
+      .btn-danger {
+        background-color: var(--danger-color);
+      }
+      .btn-danger:hover {
+        background-color: #b91c1c;
+      }
+      .btn-warning {
+        background-color: var(--warning-color);
+      }
+      .btn-warning:hover {
+        background-color: #d97706;
+      }
+      .btn-small {
+        padding: 0.6rem;
+        width: auto;
+        font-size: 0.875rem;
+        display: inline-flex;
+      }
+
+      .settings-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+      .settings-column {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .node-manage {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      .config-box {
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.25rem;
+      }
+      .config-title {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        color: var(--accent-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .divider {
+        grid-column: span 2;
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin: 0.5rem 0;
+      }
+      .divider::before,
+      .divider::after {
+        content: "";
+        flex: 1;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .divider span {
+        padding: 0 10px;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: bold;
+      }
+
+      /* --- MODAL CHART (Pure Canvas) --- */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(2px);
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal-content {
+        background: var(--panel-bg);
+        width: 90%;
+        max-width: 600px;
+        border-radius: 12px;
+        padding: 1.5rem;
+        position: relative;
+      }
+      .modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        cursor: pointer;
+        color: var(--text-muted);
+        font-size: 1.5rem;
+        line-height: 1;
+      }
+
+      .chart-container {
+        width: 100%;
+        height: 250px;
+        margin-top: 1rem;
+        position: relative;
+      }
+      .chart-container canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .chart-legend {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+        margin-top: 0.8rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend-color {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+      }
+
+      /* Loader Animation */
+      .loader {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        /* body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            overscroll-behavior-y: none;
-        } */
-
-        header {
-            background-color: var(--panel-bg);
-            padding: 1rem;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
-            /* position: relative;
-            z-index: 10; */
-            position: sticky;
-            top: 0;
-            z-index: 10;
+      /* Warning Pulse Animation */
+      @keyframes pulse-warning {
+        0% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
         }
-
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            color: var(--accent-color);
+        70% {
+          box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
         }
-
-        main {
-            /* flex: 1;
-            overflow-y: auto; */
-            padding: 1.5rem 1rem;
-            padding-bottom: 5rem;
-            /* position: relative;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-y: contain; */
+        100% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         }
+      }
 
-        /* Navigation */
-        nav {
-            background-color: var(--nav-bg);
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-around;
-            padding: 0.5rem 0;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            z-index: 100;
-        }
+      /* --- TOAST NOTIFICATION --- */
+      #toast {
+        visibility: hidden;
+        min-width: 250px;
+        background-color: var(--success-color);
+        color: white;
+        text-align: center;
+        border-radius: 8px;
+        padding: 16px;
+        position: fixed;
+        z-index: 2000;
+        left: 50%;
+        bottom: 80px;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      #toast.show {
+        visibility: visible;
+        opacity: 1;
+      }
+      #toast.error {
+        background-color: var(--danger-color);
+      }
 
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: var(--text-muted);
-            text-decoration: none;
-            cursor: pointer;
-            padding: 0.5rem;
-            flex: 1;
-            transition: color 0.2s;
-        }
-
-        .nav-item.active {
-            color: var(--accent-color);
-        }
-
-        .nav-icon {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
-            margin-bottom: 4px;
-        }
-
-        /* Views */
-        .view-section {
-            display: none;
-            max-width: 600px;
-            margin: 0 auto;
-            padding-bottom: 4rem;
-            /* Space for bottom nav */
-        }
-
-        .view-section.active {
-            display: block;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Cards & Panels */
-        .panel {
-            background-color: var(--panel-bg);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        h2 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Dashboard specific */
-        .sensor-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .sensor-card {
-            background: linear-gradient(145deg, var(--panel-bg), var(--bg-color));
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.5rem 0 0 0;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow: hidden;
-            justify-content: space-between;
-        }
-
-        .sensor-card>svg,
-        .sensor-card>.sensor-value,
-        .sensor-card>.sensor-label {
-            padding: 0 1rem;
-            z-index: 2;
-        }
-
-        .sensor-card.temp {
-            border-bottom: 3px solid var(--warning-color);
-        }
-
-        .sensor-card.hum {
-            border-bottom: 3px solid var(--accent-color);
-        }
-
-        .sensor-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin: 0.5rem 0;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .sensor-label {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            /* text-transform: uppercase; */
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5rem;
-        }
-
-        .chart-container {
-            width: 100%;
-            height: 70px;
-            margin-top: auto;
-            position: relative;
-        }
-
-        .chart-container canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        .sensor-container {
-            position: relative;
-        }
-
-        /* Warning State for Sensor Cards */
-        .sensor-card.warning {
-            border-color: var(--danger-color);
-            background: linear-gradient(145deg, rgba(239, 68, 68, 0.05), var(--bg-color));
-            animation: pulse-warning 2s infinite ease-in-out;
-        }
-
-        .sensor-card.warning .sensor-value,
-        .sensor-card.warning svg {
-            color: var(--danger-color) !important;
-        }
-
-        @keyframes pulse-warning {
-            0% {
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-            }
-
-            70% {
-                box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-            }
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--text-muted);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-
-        .status-dot.connected {
-            background-color: var(--success-color);
-            box-shadow: 0 0 8px var(--success-color);
-        }
-
-        .status-dot.error {
-            background-color: var(--danger-color);
-            box-shadow: 0 0 8px var(--danger-color);
-        }
-
-        /* Controls specific */
-        .control-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .control-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-
-        .device-info h3 {
-            font-size: 1rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .device-status {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        /* Toggle Switch */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 56px;
-            height: 30px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: var(--bg-color);
-            border: 1px solid var(--border-color);
-            transition: .3s;
-            border-radius: 30px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 22px;
-            width: 22px;
-            left: 3px;
-            bottom: 3px;
-            background-color: var(--text-muted);
-            transition: .3s;
-            border-radius: 50%;
-        }
-
-        input:checked+.slider {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(26px);
-            background-color: white;
-        }
-
-        input:disabled+.slider {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Forms specific */
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--text-muted);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            background-color: var(--bg-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--accent-color);
-        }
-
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 0.875rem;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            text-align: center;
-        }
-
-        .btn:hover {
-            background-color: var(--accent-hover);
-        }
-
-        .divider {
-            grid-column: span 2;
-            display: flex;
-            align-items: center;
-            text-align: center;
-            margin: 0.25rem 0;
-        }
-
-        .divider::before,
-        .divider::after {
-            content: "";
-            flex: 1;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        .divider span {
-            padding: 0 10px;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        /* Toast Notification */
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: var(--success-color);
-            color: white;
-            text-align: center;
-            border-radius: 8px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1000;
-            left: 50%;
-            bottom: 80px;
-            transform: translateX(-50%);
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            opacity: 0;
-            transition: opacity 0.3s, bottom 0.3s;
-        }
-
-        #toast.show {
-            visibility: visible;
-            opacity: 1;
-            bottom: 90px;
-        }
-
-        #toast.error {
-            background-color: var(--danger-color);
-        }
-
-        .loader {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            display: none;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .settings-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        @media (min-width: 768px) {
-            .view-section {
-                max-width: 800px;
-            }
-
-            .sensor-grid {
-                gap: 1rem;
-            }
-
-            .settings-grid {
-                grid-template-columns: repeat(2, 1fr);
-                align-items: start;
-            }
-        }
-
-        /* --- Styles cho System Status Panel --- */
+      /* Responsive */
+      @media (min-width: 768px) {
         .status-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
+          grid-template-columns: repeat(4, 1fr);
+          background-color: var(--bg-color);
+          padding: 1.25rem;
+          border-radius: 8px;
         }
-
         .status-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 0.8rem;
-            border-bottom: 1px dashed var(--border-color);
+          flex-direction: column;
+          align-items: flex-start;
+          border-bottom: none;
+          border-right: 1px dashed var(--border-color);
         }
-
         .status-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
+          border-right: none;
         }
-
-        .status-label {
-            color: var(--text-muted);
-            font-size: 0.875rem;
+        .node-grid {
+          grid-template-columns: repeat(3, 1fr);
         }
-
-        .status-value {
-            display: flex;
-            align-items: center;
+        .gateway-control {
+          flex-direction: row;
+          gap: 1.5rem;
         }
-
-        .status-text {
-            font-size: 0.875rem;
-            font-weight: 500;
+        .settings-layout {
+          grid-template-columns: 1fr 2fr;
         }
-
-        .last-update-text {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: right;
-            margin-top: 1rem;
-            padding-top: 0.8rem;
-            border-top: 1px solid var(--border-color);
+        .node-manage {
+          flex-direction: row;
         }
-
-        @media (min-width: 768px) {
-            .status-grid {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 1.5rem;
-                background-color: var(--bg-color);
-                padding: 1.25rem;
-                border-radius: 8px;
-                border: 1px solid var(--border-color);
-            }
-
-            .status-item {
-                flex-direction: column;
-                align-items: flex-start;
-                border-bottom: none;
-                padding-bottom: 0;
-                gap: 0.5rem;
-            }
-
-            .status-item:not(:last-child) {
-                border-right: 1px dashed var(--border-color);
-                padding-right: 1.5rem;
-            }
+        .sensor-grid-config {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
         }
+      }
     </style>
-</head>
+  </head>
 
-<body>
-
+  <body>
     <header>
-        <h1>IoT ESP32 CORE</h1>
+      <h1>Cold Chain Monitoring System - Gateway</h1>
     </header>
 
     <main>
-        <!-- Dashboard View -->
-        <section id="view-dashboard" class="view-section active">
-            <div class="panel">
-                <h2>
-                    <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V13L16.25,16.15L17,14.92L12.5,12.25V7H11Z" />
-                    </svg>
-                    System Status
-                </h2>
-
-                <div class="status-grid">
-                    <div class="status-item">
-                        <span class="status-label">Web Connection</span>
-                        <div class="status-value">
-                            <span id="conn-indicator" class="status-dot"></span>
-                            <span id="conn-text" class="status-text">Polling...</span>
-                        </div>
-                    </div>
-
-                    <div class="status-item">
-                        <span class="status-label">DHT20 Sensor</span>
-                        <div class="status-value">
-                            <span id="dht-indicator" class="status-dot"></span>
-                            <span id="dht-text" class="status-text">Checking...</span>
-                        </div>
-                    </div>
-
-                    <div class="status-item">
-                        <span class="status-label">AI Prediction</span>
-                        <div class="status-value">
-                            <span id="ai-indicator" class="status-dot"></span>
-                            <span id="ai-text" class="status-text">Analyzing...</span>
-                        </div>
-                    </div>
-
-                    <div class="status-item">
-                        <span class="status-label">LCD Display</span>
-                        <div class="status-value">
-                            <span id="lcd-indicator" class="status-dot"></span>
-                            <span id="lcd-text" class="status-text">Checking...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="last-update-text">
-                    Last Update: <span id="last-update">--:--:--</span>
-                </div>
+      <section id="view-dashboard" class="view-section active">
+        <div class="panel">
+          <h2>
+            <svg style="width: 20px; height: 20px" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4Z"
+              />
+            </svg>
+            Gateway Status
+          </h2>
+          <div class="status-grid">
+            <div class="status-item">
+              <span class="status-label">Network / Cloud</span>
+              <div class="status-value">
+                <span id="conn-indicator" class="status-dot"></span>
+                <span id="conn-text" class="status-text">Polling...</span>
+              </div>
             </div>
-
-            <div class="sensor-grid">
-                <div class="sensor-card temp">
-                    <div>
-                        <svg style="width:32px;height:32px;color:var(--warning-color);" viewBox="0 0 24 24">
-                            <path fill="currentColor"
-                                d="M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z" />
-                        </svg>
-                    </div>
-                    <div class="sensor-value" id="val-temp">--.-</div>
-                    <div class="sensor-label">Temperature (°C)</div>
-                    <div class="chart-container">
-                        <canvas id="chart-temp"></canvas>
-                    </div>
-                </div>
-
-                <div class="sensor-card hum">
-                    <div>
-                        <svg style="width:32px;height:32px;color:var(--accent-color);" viewBox="0 0 24 24">
-                            <path fill="currentColor"
-                                d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" />
-                        </svg>
-                    </div>
-                    <div class="sensor-value" id="val-hum">--.-</div>
-                    <div class="sensor-label">Humidity (%)</div>
-                    <div class="chart-container">
-                        <canvas id="chart-hum"></canvas>
-                    </div>
-                </div>
+            <div class="status-item">
+              <span class="status-label">Active Nodes</span>
+              <div class="status-value">
+                <span class="status-text" id="active-nodes-count">0 / 0</span>
+              </div>
             </div>
-        </section>
-
-        <!-- Controls View -->
-        <section id="view-controls" class="view-section">
-            <div class="panel">
-                <h2>
-                    <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M12,16A3,3 0 0,1 9,13C9,11.88 9.61,10.9 10.5,10.39L20.21,4.77L21.68,7.29L13.7,11.69V11.83C14.54,12.27 15,13.11 15,14C15,14.54 14.86,15.06 14.55,15.54C14.05,16.29 13.06,16.5 12,16V16M11,10V7H13V10H11M6,8H8V11H6V8M3,12H5V15H3V12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z" />
-                    </svg>
-                    Relay Controls
-                </h2>
-
-                <div class="control-item">
-                    <div class="device-info">
-                        <h3>Buzzer</h3>
-                        <div class="device-status" id="status-dev1">State: UNKNOWN</div>
-                    </div>
-                    <div>
-                        <span id="loader-dev1" class="loader" style="margin-right: 10px;"></span>
-                        <label class="switch">
-                            <input type="checkbox" id="toggle-dev1" onchange="toggleDevice(1, this)">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="control-item">
-                    <div class="device-info">
-                        <h3>Device 2</h3>
-                        <div class="device-status" id="status-dev2">State: UNKNOWN</div>
-                    </div>
-                    <div>
-                        <span id="loader-dev2" class="loader" style="margin-right: 10px;"></span>
-                        <label class="switch">
-                            <input type="checkbox" id="toggle-dev2" onchange="toggleDevice(2, this)">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
+            <div class="status-item">
+              <span class="status-label">ESP-NOW Status</span>
+              <div class="status-value">
+                <span id="espnow-indicator" class="status-dot"></span>
+                <span id="espnow-text" class="status-text">Checking...</span>
+              </div>
             </div>
+            <div class="status-item">
+              <span class="status-label">Last Update</span>
+              <div class="status-value">
+                <span id="last-update" class="status-text">--:--:--</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <div class="panel">
-                <h2>
-                    <svg style="width:20px;height:20px" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z" />
-                    </svg>
-                    Mode Controls
-                </h2>
-                <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;">
-                    You can switch the device to Wifi connection mode to send data to CoreIoT
+        <div class="section-title">Connected Cold Rooms (Nodes)</div>
+        <div class="node-grid" id="node-container"></div>
+      </section>
+
+      <section id="view-controls" class="view-section">
+        <div class="gateway-control">
+          <div class="panel" style="flex: 1">
+            <h2>
+              <svg style="width: 20px; height: 20px" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M12,16A3,3 0 0,1 9,13C9,11.88 9.61,10.9 10.5,10.39L20.21,4.77L21.68,7.29L13.7,11.69V11.83C14.54,12.27 15,13.11 15,14C15,14.54 14.86,15.06 14.55,15.54C14.05,16.29 13.06,16.5 12,16V16M11,10V7H13V10H11M6,8H8V11H6V8M3,12H5V15H3V12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z"
+                />
+              </svg>
+              Relay Controls (Gateway)
+            </h2>
+            <div class="control-item">
+              <div class="device-info">
+                <h3>Buzzer (Alarm)</h3>
+                <div class="device-status" id="status-dev1">State: UNKNOWN</div>
+              </div>
+              <div>
+                <span
+                  id="loader-dev1"
+                  class="loader"
+                  style="
+                    margin-right: 10px;
+                    border-top-color: var(--accent-color);
+                  "
+                ></span>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    id="toggle-dev1"
+                    onchange="toggleDevice(1, this)"
+                  />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="control-item">
+              <div class="device-info">
+                <h3>Device 2 (Cooler/Fan)</h3>
+                <div class="device-status" id="status-dev2">State: UNKNOWN</div>
+              </div>
+              <div>
+                <span
+                  id="loader-dev2"
+                  class="loader"
+                  style="
+                    margin-right: 10px;
+                    border-top-color: var(--accent-color);
+                  "
+                ></span>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    id="toggle-dev2"
+                    onchange="toggleDevice(2, this)"
+                  />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="panel"
+            style="
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+            "
+          >
+            <h2>
+              <svg style="width: 20px; height: 20px" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z"
+                />
+              </svg>
+              Gateway Mode Controls
+            </h2>
+            <div
+              style="
+                margin-bottom: 1rem;
+                color: var(--text-muted);
+                font-size: 0.9rem;
+              "
+            >
+              Force the Gateway to switch to WiFi mode to connect to CoreIoT.
+            </div>
+            <button
+              type="button"
+              class="btn"
+              id="btn-wifi-mode"
+              onclick="switchToWifiMode(this)"
+            >
+              <span class="btn-text">Connect to Wifi</span>
+              <span class="loader" style="margin-left: 10px"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>
+            <svg style="width: 20px; height: 20px" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V13L16.25,16.15L17,14.92L12.5,12.25V7H11Z"
+              />
+            </svg>
+            Node Remote Control
+          </h2>
+          <p
+            style="
+              font-size: 0.85rem;
+              color: var(--text-muted);
+              margin-bottom: 1rem;
+            "
+          >
+            Send a hardware reset command to specific sensor nodes via ESP-NOW.
+          </p>
+          <div id="control-nodes-list"></div>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view-section">
+        <div class="panel">
+          <h2>System Configuration</h2>
+          <div class="settings-layout">
+            <div class="settings-column">
+              <form id="form-ap" class="config-box">
+                <h3 class="config-title">
+                  <svg style="width: 18px; height: 18px" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M12,2L8,6V10H16V6L12,2M8,12L4,16V22H20V16L16,12H8M10,14H14V17.5L12,19.5L10,17.5V14Z"
+                    />
+                  </svg>
+                  Access Point (AP)
+                </h3>
+                <div class="form-group">
+                  <label for="ap_ssid">AP SSID</label>
+                  <input
+                    type="text"
+                    id="ap_ssid"
+                    name="ap_ssid"
+                    class="form-control"
+                    required
+                  />
                 </div>
-                <button type="button" class="btn" id="btn-wifi-mode" onclick="switchToWifiMode(this)">
-                    <span class="btn-text">Connect to Wifi</span>
-                    <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
+                <div class="form-group">
+                  <label for="ap_password">AP Password</label>
+                  <input
+                    type="password"
+                    id="ap_password"
+                    name="ap_password"
+                    class="form-control"
+                    minlength="8"
+                    required
+                  />
+                </div>
+                <button type="submit" class="btn btn-small">
+                  <span class="btn-text">Save AP</span>
+                  <span class="loader" style="margin-left: 10px"></span>
                 </button>
-            </div>
-        </section>
+              </form>
 
-        <!-- Settings View -->
-        <section id="view-settings" class="view-section">
-            <div class="panel">
-                <h2 style="margin-bottom: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.8rem;">
-                    <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                        <path fill="currentColor"
-                            d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
-                    </svg>
-                    System Configuration
-                </h2>
-                <div class="settings-grid">
-                    <form id="form-ap"
-                        style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-                        <h3
-                            style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
-                            <svg style="width:18px;height:18px" viewBox="0 0 24 24">
-                                <path fill="currentColor"
-                                    d="M12,2L8,6V10H16V6L12,2M8,12L4,16V22H20V16L16,12H8M10,14H14V17.5L12,19.5L10,17.5V14Z" />
-                            </svg>
-                            Access Point (AP)
-                        </h3>
-                        <div class="form-group">
-                            <label for="ap_ssid">AP SSID</label>
-                            <input type="text" id="ap_ssid" name="ap_ssid" class="form-control" placeholder="ESP32-AP"
-                                required style="background-color: var(--panel-bg);">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ap_password">AP Password</label>
-                            <input type="password" id="ap_password" name="ap_password" class="form-control"
-                                placeholder="Min 8 chars" minlength="8" required
-                                style="background-color: var(--panel-bg);">
-                        </div>
-                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
-                            <span class="btn-text">Save AP</span>
-                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
-                        </button>
-                    </form>
-
-                    <form id="form-wifi"
-                        style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-                        <h3
-                            style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
-                            <svg style="width:18px;height:18px" viewBox="0 0 24 24">
-                                <path fill="currentColor"
-                                    d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z" />
-                            </svg>
-                            WiFi Station
-                        </h3>
-                        <div class="form-group">
-                            <label for="wifi_ssid">WiFi SSID</label>
-                            <input type="text" id="wifi_ssid" name="wifi_ssid" class="form-control"
-                                placeholder="Home Network" required style="background-color: var(--panel-bg);">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="wifi_password">WiFi Password</label>
-                            <input type="password" id="wifi_password" name="wifi_password" class="form-control"
-                                placeholder="Network password" style="background-color: var(--panel-bg);">
-                        </div>
-                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
-                            <span class="btn-text">Save WiFi</span>
-                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
-                        </button>
-                    </form>
-
-                    <form id="form-cloud" style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
-                            <svg style="width:18px;height:18px" viewBox="0 0 24 24"><path fill="currentColor" d="M19.35,10.03C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.03C2.34,8.36 0,10.9 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.03Z" /></svg>
-                            Cloud Configuration
-                        </h3>
-                        <div class="form-group">
-                            <label for="core_iot_server">Server Host/IP</label>
-                            <input type="text" id="core_iot_server" name="core_iot_server" class="form-control" placeholder="app.coreiot.io" required style="background-color: var(--panel-bg);">
-                        </div>
-                        <div class="form-group">
-                            <label for="core_iot_token">Device Token</label>
-                            <input type="text" id="core_iot_token" name="core_iot_token" class="form-control" placeholder="Device Token" required style="background-color: var(--panel-bg);">
-                        </div>
-                        <!-- <div class="sensor-grid" style="gap: 1rem;"> -->
-                            <div class="form-group">
-                                <label for="core_iot_port">MQTT/Server Port</label>
-                                <input type="number" id="core_iot_port" name="core_iot_port" class="form-control" value="1883" required style="background-color: var(--panel-bg);">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="send_interval_ms">Publish Interval (ms)</label>
-                                <input type="number" id="send_interval_ms" name="send_interval_ms" class="form-control" min="1000" value="5000" required style="background-color: var(--panel-bg);">
-                            </div>
-                        <!-- </div> -->
-                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
-                            <span class="btn-text">Save Cloud</span>
-                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
-                        </button>
-                    </form>
-
-                    <form id="form-sensors" style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px;">
-                            <svg style="width:18px;height:18px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20Z" /></svg>
-                            Sensor Configuration
-                        </h3>
-                        <div class="form-group">
-                            <label for="read_interval_ms">Reading Interval (ms)</label>
-                            <input type="number" id="read_interval_ms" name="read_interval_ms" class="form-control" min="500" value="2000" required style="background-color: var(--panel-bg);">
-                        </div>
-                        <div class="sensor-grid" style="gap: 1rem;">
-                            <div class="divider">
-                                <span>Temperature (°C)</span>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="min_temp_threshold">Min</label>
-                                <input type="number" id="min_temp_threshold" name="min_temp_threshold" class="form-control" value="0" required style="background-color: var(--panel-bg);">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="max_temp_threshold">Max</label>
-                                <input type="number" id="max_temp_threshold" name="max_temp_threshold" class="form-control" value="50" required style="background-color: var(--panel-bg);">
-                            </div>
-                            <div class="divider">
-                                <span>Humidity (%)</span>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="min_humidity_threshold">Min</label>
-                                <input type="number" id="min_humidity_threshold" name="min_humidity_threshold" class="form-control" value="20" required style="background-color: var(--panel-bg);">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="max_humidity_threshold">Max</label>
-                                <input type="number" id="max_humidity_threshold" name="max_humidity_threshold" class="form-control" value="80" required style="background-color: var(--panel-bg);">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn" style="margin-top: 1rem; padding: 0.6rem;">
-                            <span class="btn-text">Save Sensors</span>
-                            <span class="loader" style="margin-left: 10px; vertical-align: middle;"></span>
-                        </button>
-                    </form>
+              <form id="form-wifi" class="config-box">
+                <h3 class="config-title">
+                  <svg style="width: 18px; height: 18px" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M12,21L15.6,16.2C14.6,15.3 13.4,14.8 12,14.8C10.6,14.8 9.4,15.3 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z"
+                    />
+                  </svg>
+                  WiFi Station (Gateway)
+                </h3>
+                <div class="form-group">
+                  <label for="wifi_ssid">WiFi SSID</label>
+                  <input
+                    type="text"
+                    name="wifi_ssid"
+                    id="wifi_ssid"
+                    class="form-control"
+                    required
+                  />
                 </div>
+                <div class="form-group">
+                  <label for="wifi_password">WiFi Password</label>
+                  <input
+                    type="password"
+                    name="wifi_password"
+                    id="wifi_password"
+                    class="form-control"
+                  />
+                </div>
+                <button type="submit" class="btn btn-small">
+                  <span class="btn-text">Save WiFi</span>
+                  <span class="loader" style="margin-left: 10px"></span>
+                </button>
+              </form>
+
+              <form id="form-cloud" class="config-box">
+                <h3 class="config-title">
+                  <svg style="width: 18px; height: 18px" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M19.35,10.03C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.03C2.34,8.36 0,10.9 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.03Z"
+                    />
+                  </svg>
+                  Cloud IoT (MQTT)
+                </h3>
+                <div class="form-group">
+                  <label for="core_iot_server">Server Host/IP</label>
+                  <input
+                    type="text"
+                    name="core_iot_server"
+                    id="core_iot_server"
+                    class="form-control"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="core_iot_token">Device Token (Gateway)</label>
+                  <input
+                    type="text"
+                    name="core_iot_token"
+                    id="core_iot_token"
+                    class="form-control"
+                    required
+                  />
+                </div>
+                <div class="sensor-grid-config">
+                  <div class="form-group">
+                    <label for="core_iot_port">MQTT/Server Port</label>
+                    <input
+                      type="number"
+                      id="core_iot_port"
+                      name="core_iot_port"
+                      class="form-control"
+                      value="1883"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="send_interval_ms">Publish Interval (ms)</label>
+                    <input
+                      type="number"
+                      id="send_interval_ms"
+                      name="send_interval_ms"
+                      class="form-control"
+                      min="1000"
+                      required
+                    />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-small">
+                  <span class="btn-text">Save Cloud Config</span>
+                  <span class="loader" style="margin-left: 10px"></span>
+                </button>
+              </form>
             </div>
-        </section>
+
+            <div class="settings-column">
+              <div class="node-manage">
+                <form
+                  id="form-add-node"
+                  class="config-box"
+                  style="flex: 1; overflow: hidden"
+                >
+                  <h3 class="config-title">Pair New Cold Room (Node)</h3>
+                  <div class="form-group">
+                    <label>Node MAC Address</label>
+                    <input
+                      type="text"
+                      name="mac"
+                      class="form-control"
+                      placeholder="XX:XX:XX:XX:XX:XX"
+                      required
+                      pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Room Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      class="form-control"
+                      placeholder="Cold Room A1"
+                      required
+                    />
+                  </div>
+                  <button type="submit" class="btn btn-small">
+                    <span class="btn-text">Send Pairing Request</span>
+                    <span class="loader" style="margin-left: 10px"></span>
+                  </button>
+                </form>
+
+                <div class="config-box" style="flex: 1; overflow: hidden">
+                  <h3 class="config-title">Manage Paired Nodes</h3>
+                  <div
+                    id="paired-nodes-list"
+                    style="max-height: 200px; overflow-y: auto"
+                  ></div>
+                </div>
+              </div>
+              <form id="form-node-config" class="config-box">
+                <h3 class="config-title">Configure Specific Node</h3>
+                <div class="form-group">
+                  <label>Select Target Node</label>
+                  <select
+                    name="target_mac"
+                    id="select-config-node"
+                    class="form-control"
+                    required
+                    onchange="fetchNodeConfig(this.value)"
+                  >
+                    <option value="">-- Choose a Node --</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="read_interval_ms">Reading Interval (ms)</label>
+                  <input
+                    type="number"
+                    id="read_interval_ms"
+                    name="read_interval_ms"
+                    class="form-control"
+                    min="500"
+                    required
+                  />
+                </div>
+
+                <div class="sensor-grid-config">
+                  <div class="divider"><span>Temperature (°C)</span></div>
+                  <div class="form-group">
+                    <label for="min_temp_threshold">Min</label>
+                    <input
+                      type="number"
+                      id="min_temp_threshold"
+                      name="min_temp_threshold"
+                      class="form-control"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="max_temp_threshold">Max</label>
+                    <input
+                      type="number"
+                      id="max_temp_threshold"
+                      name="max_temp_threshold"
+                      class="form-control"
+                      required
+                    />
+                  </div>
+
+                  <div class="divider"><span>Humidity (%)</span></div>
+                  <div class="form-group">
+                    <label for="min_humidity_threshold">Min</label>
+                    <input
+                      type="number"
+                      id="min_humidity_threshold"
+                      name="min_humidity_threshold"
+                      class="form-control"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="max_humidity_threshold">Max</label>
+                    <input
+                      type="number"
+                      id="max_humidity_threshold"
+                      name="max_humidity_threshold"
+                      class="form-control"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-small">
+                  <span class="btn-text">Sync Config via ESP-NOW</span>
+                  <span class="loader" style="margin-left: 10px"></span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
-    <!-- Navigation Bar -->
     <nav>
-        <div class="nav-item active" onclick="switchView('dashboard')">
-            <svg class="nav-icon" viewBox="0 0 24 24">
-                <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z" />
-            </svg>
-            <span style="font-size: 0.75rem; font-weight: 500;">Dashboard</span>
-        </div>
-        <div class="nav-item" onclick="switchView('controls')">
-            <svg class="nav-icon" viewBox="0 0 24 24">
-                <path
-                    d="M12,16A3,3 0 0,1 9,13C9,11.88 9.61,10.9 10.5,10.39L20.21,4.77L21.68,7.29L13.7,11.69V11.83C14.54,12.27 15,13.11 15,14C15,14.54 14.86,15.06 14.55,15.54C14.05,16.29 13.06,16.5 12,16V16M11,10V7H13V10H11M6,8H8V11H6V8M3,12H5V15H3V12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z" />
-            </svg>
-            <span style="font-size: 0.75rem; font-weight: 500;">Controls</span>
-        </div>
-        <div class="nav-item" onclick="switchView('settings')">
-            <svg class="nav-icon" viewBox="0 0 24 24">
-                <path
-                    d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
-            </svg>
-            <span style="font-size: 0.75rem; font-weight: 500;">Settings</span>
-        </div>
+      <div class="nav-item active" onclick="switchView('dashboard')">
+        <svg class="nav-icon" viewBox="0 0 24 24">
+          <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z" />
+        </svg>
+        <span style="font-size: 0.75rem">Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="switchView('controls')">
+        <svg class="nav-icon" viewBox="0 0 24 24">
+          <path
+            d="M12,16A3,3 0 0,1 9,13C9,11.88 9.61,10.9 10.5,10.39L20.21,4.77L21.68,7.29L13.7,11.69V11.83C14.54,12.27 15,13.11 15,14C15,14.54 14.86,15.06 14.55,15.54C14.05,16.29 13.06,16.5 12,16V16M11,10V7H13V10H11M6,8H8V11H6V8M3,12H5V15H3V12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z"
+          />
+        </svg>
+        <span style="font-size: 0.75rem">Controls</span>
+      </div>
+      <div class="nav-item" onclick="switchView('settings')">
+        <svg class="nav-icon" viewBox="0 0 24 24">
+          <path
+            d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+          />
+        </svg>
+        <span style="font-size: 0.75rem">Settings</span>
+      </div>
     </nav>
 
-    <!-- Toast Component -->
+    <div id="chart-modal" class="modal-overlay">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeChartModal()">&times;</span>
+        <h3
+          id="modal-node-title"
+          style="color: var(--accent-color); margin-bottom: 0.5rem"
+        >
+          Node History
+        </h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted)">
+          Showing last 30 data points
+        </p>
+
+        <div class="chart-container">
+          <canvas id="historyCanvas"></canvas>
+        </div>
+
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div
+              class="legend-color"
+              style="background-color: var(--cold-color)"
+            ></div>
+            <span>Temp (°C)</span>
+          </div>
+          <div class="legend-item">
+            <div
+              class="legend-color"
+              style="background-color: var(--warning-color)"
+            ></div>
+            <span>Hum (%)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="toast">Message</div>
 
     <script>
+      // --- CUSTOM PURE HTML5 CANVAS CHART CLASS ---
+      class DualLineChart {
+        constructor(canvasId, config) {
+          this.canvas = document.getElementById(canvasId);
+          this.ctx = this.canvas.getContext("2d");
+          this.config = config;
+          this.resize();
 
-        (function () {
-            class SimpleLineChart {
-                constructor(canvasId, color, maxDataPoints = 30) {
-                    this.canvas = document.getElementById(canvasId);
-                    this.ctx = this.canvas.getContext('2d');
-                    this.color = color;
-                    this.data = [];
-                    this.maxDataPoints = maxDataPoints;
+          this.resizeListener = () => this.resize();
+          window.addEventListener("resize", this.resizeListener);
+        }
 
-                    this.resize();
-                    window.addEventListener('resize', () => this.resize());
-                }
+        resize() {
+          if (!this.canvas.parentElement) return;
+          const dpr = window.devicePixelRatio || 1;
+          const rect = this.canvas.parentElement.getBoundingClientRect();
 
-                resize() {
-                    if (!this.canvas.parentElement) return;
-                    const dpr = window.devicePixelRatio || 1;
-                    const rect = this.canvas.parentElement.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return;
 
-                    if (rect.width === 0 || rect.height === 0) return;
+          this.canvas.width = rect.width * dpr;
+          this.canvas.height = rect.height * dpr;
+          this.ctx.scale(dpr, dpr);
 
-                    this.canvas.width = rect.width * dpr;
-                    this.canvas.height = rect.height * dpr;
-                    this.ctx.scale(dpr, dpr);
+          this.canvas.style.width = `${rect.width}px`;
+          this.canvas.style.height = `${rect.height}px`;
 
-                    this.canvas.style.width = `${rect.width}px`;
-                    this.canvas.style.height = `${rect.height}px`;
+          this.draw();
+        }
 
-                    this.draw();
-                }
+        update(data1, data2) {
+          this.config.data1.data = data1 || [];
+          this.config.data2.data = data2 || [];
+          requestAnimationFrame(() => this.draw());
+        }
 
-                addData(value) {
-                    if (typeof value !== 'number' || isNaN(value)) return;
-                    this.data.push(value);
-                    if (this.data.length > this.maxDataPoints) {
-                        this.data.shift();
-                    }
-                    requestAnimationFrame(() => this.draw());
-                }
+        destroy() {
+          window.removeEventListener("resize", this.resizeListener);
+        }
 
-                draw() {
-                    if (!this.canvas.parentElement) return;
-                    const rect = this.canvas.parentElement.getBoundingClientRect();
-                    const width = rect.width;
-                    const height = rect.height;
+        drawDataset(data, color, min, max, width, height) {
+          if (!data || data.length < 2) return;
 
-                    this.ctx.clearRect(0, 0, width, height);
+          const range = max - min || 1;
+          const xStep = width / (this.config.maxDataPoints - 1);
 
-                    if (this.data.length < 2) return;
+          this.ctx.beginPath();
+          let currentX = width - (data.length - 1) * xStep;
 
-                    let min = Math.min(...this.data);
-                    let max = Math.max(...this.data);
+          for (let i = 0; i < data.length; i++) {
+            const x = currentX + i * xStep;
+            const y = height - ((data[i] - min) / range) * height;
 
-                    const padding = (max - min) * 0.1 || 1;
-                    min -= padding;
-                    max += padding;
+            if (i === 0) this.ctx.moveTo(x, y);
+            else this.ctx.lineTo(x, y);
+          }
 
-                    const range = max - min || 1;
-                    const xStep = width / (this.maxDataPoints - 1);
+          this.ctx.strokeStyle = color;
+          this.ctx.lineWidth = 2.5;
+          this.ctx.lineCap = "round";
+          this.ctx.lineJoin = "round";
+          this.ctx.stroke();
 
-                    this.ctx.beginPath();
-                    let currentX = width - (this.data.length - 1) * xStep;
+          // Draw Area Fill Gradient
+          const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
+          gradient.addColorStop(0, `${color}33`); // ~20% opacity
+          gradient.addColorStop(1, `${color}00`); // 0% opacity
 
-                    for (let i = 0; i < this.data.length; i++) {
-                        const x = currentX + (i * xStep);
-                        const y = height - ((this.data[i] - min) / range) * height;
+          const lastX = currentX + (data.length - 1) * xStep;
+          this.ctx.lineTo(lastX, height);
+          this.ctx.lineTo(currentX, height);
+          this.ctx.closePath();
 
-                        if (i === 0) {
-                            this.ctx.moveTo(x, y);
-                        } else {
-                            this.ctx.lineTo(x, y);
-                        }
-                    }
+          this.ctx.fillStyle = gradient;
+          this.ctx.fill();
+        }
 
-                    this.ctx.strokeStyle = this.color;
-                    this.ctx.lineWidth = 2.5;
-                    this.ctx.lineCap = 'round';
-                    this.ctx.lineJoin = 'round';
-                    this.ctx.stroke();
+        draw() {
+          if (!this.canvas.parentElement) return;
+          const rect = this.canvas.parentElement.getBoundingClientRect();
+          const width = rect.width;
+          const height = rect.height;
 
-                    // Fill area under line
-                    const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
-                    gradient.addColorStop(0, `${this.color}66`); // 40% opacity
-                    gradient.addColorStop(1, `${this.color}00`); // 0% opacity
+          this.ctx.clearRect(0, 0, width, height);
 
-                    const lastX = currentX + (this.data.length - 1) * xStep;
-                    this.ctx.lineTo(lastX, height);
-                    this.ctx.lineTo(currentX, height);
-                    this.ctx.closePath();
+          const d1 = this.config.data1.data || [];
+          const d2 = this.config.data2.data || [];
 
-                    this.ctx.fillStyle = gradient;
-                    this.ctx.fill();
-                }
+          // Auto scaling with padding
+          let min1 = Math.min(...(d1.length ? d1 : [0]));
+          let max1 = Math.max(...(d1.length ? d1 : [50]));
+          const pad1 = (max1 - min1) * 0.2 || 5;
+
+          let min2 = Math.min(...(d2.length ? d2 : [0]));
+          let max2 = Math.max(...(d2.length ? d2 : [100]));
+          const pad2 = (max2 - min2) * 0.2 || 5;
+
+          // Draw light horizontal grid lines
+          this.ctx.strokeStyle = "rgba(0,0,0,0.05)";
+          this.ctx.lineWidth = 1;
+          this.ctx.beginPath();
+          for (let i = 1; i < 4; i++) {
+            let y = height * (i / 4);
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(width, y);
+          }
+          this.ctx.stroke();
+
+          // Draw Datasets (Hum first so Temp is on top)
+          this.drawDataset(
+            d2,
+            this.config.data2.color,
+            min2 - pad2,
+            max2 + pad2,
+            width,
+            height,
+          );
+          this.drawDataset(
+            d1,
+            this.config.data1.color,
+            min1 - pad1,
+            max1 + pad1,
+            width,
+            height,
+          );
+
+          // --- Draw Dual Y-Axis Min/Max Labels directly on canvas ---
+          this.ctx.font = "bold 11px Arial";
+
+          // Left side: Temp (data1)
+          this.ctx.textAlign = "left";
+          this.ctx.fillStyle = this.config.data1.color;
+          this.ctx.fillText(`${max1.toFixed(1)}°C`, 5, 15);
+          this.ctx.fillText(`${min1.toFixed(1)}°C`, 5, height - 5);
+
+          // Right side: Hum (data2)
+          this.ctx.textAlign = "right";
+          this.ctx.fillStyle = this.config.data2.color;
+          this.ctx.fillText(`${max2.toFixed(1)}%`, width - 5, 15);
+          this.ctx.fillText(`${min2.toFixed(1)}%`, width - 5, height - 5);
+        }
+      }
+
+      const nodeHistoryData = {};
+      const MAX_SAMPLES = 30;
+      let activeChart = null;
+      let pollingInterval = null;
+
+      // --- SPA NAVIGATION ---
+      function switchView(viewName) {
+        document
+          .querySelectorAll(".view-section")
+          .forEach((v) => v.classList.remove("active"));
+        document
+          .querySelectorAll(".nav-item")
+          .forEach((n) => n.classList.remove("active"));
+
+        document.getElementById(`view-${viewName}`).classList.add("active");
+        Array.from(document.querySelectorAll(".nav-item"))
+          .find((item) => item.getAttribute("onclick").includes(viewName))
+          .classList.add("active");
+      }
+
+      function initApp() {
+        switchView("dashboard");
+        startPolling();
+        fetchDeviceStates();
+        fetchSettings();
+      }
+
+      // --- DASHBOARD POLLING ---
+      async function fetchDashboardData() {
+        try {
+          const response = await fetch("/api/data", {
+            method: "GET",
+            headers: { Accept: "application/json" },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            renderDashboard(data);
+          } else {
+            throw new Error("Server response error");
+          }
+        } catch (error) {
+          // Mock Data for offline testing
+          const mockData = {
+            gateway: { status: "Online", espnow: "Active" },
+            nodes: [
+              {
+                mac: "AA:BB:CC:DD:EE:11",
+                name: "Cold Room A1",
+                temp: (2 + Math.random() * 2).toFixed(1),
+                hum: (85 + Math.random() * 5).toFixed(1),
+                prediction: "Normal",
+                periph: { dht: "OK", lcd: "OK" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+              {
+                mac: "AA:BB:CC:DD:EE:22",
+                name: "Cold Room A2",
+                temp: (8 + Math.random() * 2).toFixed(1),
+                hum: (70 + Math.random() * 5).toFixed(1),
+                prediction: "Anomaly",
+                periph: { dht: "OK", lcd: "ERR" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+              {
+                mac: "AA:BB:CC:DD:EE:22",
+                name: "Cold Room A2",
+                temp: (8 + Math.random() * 2).toFixed(1),
+                hum: (70 + Math.random() * 5).toFixed(1),
+                prediction: "Anomaly",
+                periph: { dht: "OK", lcd: "ERR" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+              {
+                mac: "AA:BB:CC:DD:EE:22",
+                name: "Cold Room A2",
+                temp: (8 + Math.random() * 2).toFixed(1),
+                hum: (70 + Math.random() * 5).toFixed(1),
+                prediction: "Anomaly",
+                periph: { dht: "OK", lcd: "ERR" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+              {
+                mac: "AA:BB:CC:DD:EE:22",
+                name: "Cold Room A2",
+                temp: (8 + Math.random() * 2).toFixed(1),
+                hum: (70 + Math.random() * 5).toFixed(1),
+                prediction: "Anomaly",
+                periph: { dht: "OK", lcd: "ERR" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+              {
+                mac: "AA:BB:CC:DD:EE:22",
+                name: "Cold Room A2",
+                temp: (8 + Math.random() * 2).toFixed(1),
+                hum: (70 + Math.random() * 5).toFixed(1),
+                prediction: "Anomaly",
+                periph: { dht: "OK", lcd: "ERR" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+              {
+                mac: "AA:BB:CC:DD:EE:22",
+                name: "Cold Room A2",
+                temp: (8 + Math.random() * 2).toFixed(1),
+                hum: (70 + Math.random() * 5).toFixed(1),
+                prediction: "Anomaly",
+                periph: { dht: "OK", lcd: "ERR" },
+                config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
+              },
+            ],
+          };
+          renderDashboard(mockData);
+        }
+      }
+
+      function startPolling() {
+        if (pollingInterval) clearTimeout(pollingInterval);
+        fetchDashboardData().finally(() => {
+          pollingInterval = setTimeout(startPolling, 3000);
+        });
+      }
+
+      function renderDashboard(data) {
+        const gwStatus = data.gateway.status === "Online";
+        document.getElementById("conn-indicator").className =
+          `status-dot ${gwStatus ? "connected" : "error"}`;
+        document.getElementById("conn-text").innerText = gwStatus
+          ? "Online"
+          : "Offline";
+        document.getElementById("conn-text").style.color = gwStatus
+          ? "var(--success-color)"
+          : "var(--danger-color)";
+
+        document.getElementById("espnow-indicator").className =
+          "status-dot connected";
+        document.getElementById("espnow-text").innerText = data.gateway.espnow;
+
+        document.getElementById("last-update").innerText =
+          new Date().toLocaleTimeString();
+        document.getElementById("active-nodes-count").innerText =
+          `${data.nodes.length} Nodes`;
+
+        const container = document.getElementById("node-container");
+        container.innerHTML = "";
+
+        data.nodes.forEach((node) => {
+          if (!nodeHistoryData[node.mac]) {
+            nodeHistoryData[node.mac] = { labels: [], temp: [], hum: [] };
+          }
+
+          let history = nodeHistoryData[node.mac];
+          history.labels.push(new Date().toLocaleTimeString());
+          history.temp.push(parseFloat(node.temp));
+          history.hum.push(parseFloat(node.hum));
+
+          if (history.labels.length > MAX_SAMPLES) {
+            history.labels.shift();
+            history.temp.shift();
+            history.hum.shift();
+          }
+
+          // Cập nhật biểu đồ Custom Canvas nếu Modal đang mở
+          if (
+            activeChart &&
+            document.getElementById("modal-node-title").dataset.mac === node.mac
+          ) {
+            activeChart.update(history.temp, history.hum);
+          }
+
+          const isWarning =
+            node.temp < node.config.t_min ||
+            node.temp > node.config.t_max ||
+            node.hum < node.config.h_min ||
+            node.hum > node.config.h_max;
+
+          const card = document.createElement("div");
+          card.className = `node-card ${isWarning ? "warning" : ""}`;
+          card.onclick = () => openChartModal(node);
+
+          card.innerHTML = `
+                    <div class="node-header">
+                        <div>
+                            <div class="node-name">${node.name}</div>
+                            <div class="node-mac">${node.mac}</div>
+                        </div>
+                        <div style="text-align: right; font-size: 0.75rem; color: ${node.prediction === "Normal" ? "var(--success-color)" : "var(--danger-color)"}">
+                            <b>AI:</b> ${node.prediction}
+                        </div>
+                    </div>
+                    <div class="node-metrics">
+                        <div class="metric temp">
+                            <div class="metric-val">${node.temp}°C</div>
+                            <div class="metric-label">Lim: ${node.config.t_min}-${node.config.t_max}</div>
+                        </div>
+                        <div class="metric hum">
+                            <div class="metric-val">${node.hum}%</div>
+                            <div class="metric-label">Lim: ${node.config.h_min}-${node.config.h_max}</div>
+                        </div>
+                    </div>
+                    <div class="node-footer">
+                        <span>DHT: <span style="color:${node.periph.dht === "OK" ? "var(--success-color)" : "var(--danger-color)"}">${node.periph.dht}</span></span>
+                        <span>LCD: <span style="color:${node.periph.lcd === "OK" ? "var(--success-color)" : "var(--danger-color)"}">${node.periph.lcd}</span></span>
+                    </div>
+                `;
+          container.appendChild(card);
+        });
+
+        updateNodeDropdowns(data.nodes);
+      }
+
+      function updateNodeDropdowns(nodes) {
+        const selectTarget = document.getElementById("select-config-node");
+        const pairedList = document.getElementById("paired-nodes-list");
+        const controlsList = document.getElementById("control-nodes-list");
+
+        const currentSelectedMac = selectTarget.value;
+
+        if (selectTarget.options.length - 1 !== nodes.length) {
+          selectTarget.innerHTML =
+            '<option value="">-- Choose a Node --</option>';
+          pairedList.innerHTML = "";
+          controlsList.innerHTML = "";
+
+          nodes.forEach((node) => {
+            selectTarget.innerHTML += `<option value="${node.mac}">${node.name} (${node.mac})</option>`;
+
+            pairedList.innerHTML += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                            <span style="font-size: 0.9rem;">${node.name} <br><small style="color:var(--text-muted)">${node.mac}</small></span>
+                            <button class="btn btn-danger btn-small" onclick="unpairNode('${node.mac}')">Unpair</button>
+                        </div>
+                    `;
+
+            controlsList.innerHTML += `
+                        <div class="control-item">
+                            <div>
+                                <h3 style="font-size: 1rem;">${node.name}</h3>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">${node.mac}</div>
+                            </div>
+                            <button class="btn btn-warning btn-small" onclick="resetNode('${node.mac}')">Reset Node</button>
+                        </div>
+                    `;
+          });
+
+          if (currentSelectedMac) {
+            selectTarget.value = currentSelectedMac;
+          }
+        }
+      }
+
+      // --- CHART MODAL LOGIC (Canvas) ---
+      function openChartModal(node) {
+        document.getElementById("chart-modal").classList.add("active");
+        const titleEl = document.getElementById("modal-node-title");
+        titleEl.innerText = `History: ${node.name}`;
+        titleEl.dataset.mac = node.mac;
+
+        const history = nodeHistoryData[node.mac];
+
+        if (!activeChart) {
+          activeChart = new DualLineChart("historyCanvas", {
+            maxDataPoints: MAX_SAMPLES,
+            data1: { color: "#0ea5e9", data: history.temp }, // Temp Color
+            data2: { color: "#f59e0b", data: history.hum }, // Hum Color
+          });
+        } else {
+          activeChart.update(history.temp, history.hum);
+        }
+      }
+
+      function closeChartModal() {
+        document.getElementById("chart-modal").classList.remove("active");
+        if (activeChart) {
+          activeChart.destroy();
+          activeChart = null;
+        }
+      }
+
+      // --- ORIGINAL CONTROLS ---
+      async function fetchDeviceStates() {
+        try {
+          const res = await fetch("/api/control");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.device1 !== undefined) {
+              document.getElementById("toggle-dev1").checked =
+                data.device1 === "ON";
+              document.getElementById("status-dev1").innerText =
+                `State: ${data.device1}`;
+            }
+            if (data.device2 !== undefined) {
+              document.getElementById("toggle-dev2").checked =
+                data.device2 === "ON";
+              document.getElementById("status-dev2").innerText =
+                `State: ${data.device2}`;
+            }
+          }
+        } catch (e) {
+          console.warn("Could not fetch device states initially.");
+        }
+      }
+
+      async function toggleDevice(deviceId, checkbox) {
+        const state = checkbox.checked ? "ON" : "OFF";
+        const payload = { device: deviceId, state: state };
+
+        const loader = document.getElementById(`loader-dev${deviceId}`);
+        const statusText = document.getElementById(`status-dev${deviceId}`);
+
+        checkbox.disabled = true;
+        loader.style.display = "inline-block";
+
+        try {
+          const response = await fetch("/api/control", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (response.ok) {
+            statusText.innerText = `State: ${state}`;
+            showToast(`Device ${deviceId} updated!`);
+          } else {
+            throw new Error("Server rejected request");
+          }
+        } catch (error) {
+          showToast(`Failed to update Device ${deviceId}`, true);
+          checkbox.checked = !checkbox.checked;
+        } finally {
+          loader.style.display = "none";
+          checkbox.disabled = false;
+        }
+      }
+
+      async function switchToWifiMode(btnElement) {
+        const loader = btnElement.querySelector(".loader");
+        loader.style.display = "inline-block";
+
+        try {
+          const response = await fetch("/api/mode/wifi", { method: "POST" });
+          if (response.ok) showToast("Switching to WiFi Mode...");
+          else showToast("Error switching mode", true);
+        } catch (error) {
+          showToast("Connection Error!", true);
+        } finally {
+          loader.style.display = "none";
+        }
+      }
+
+      // --- MULTI-NODE API HANDLERS ---
+      async function sendApiRequest(url, payload, successMsg) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) showToast(successMsg);
+          else showToast("Error processing request", true);
+        } catch (e) {
+          showToast("Connection error", true);
+        }
+      }
+
+      function unpairNode(mac) {
+        if (confirm("Are you sure you want to unpair this node?"))
+          sendApiRequest(
+            "/api/nodes/unpair",
+            { mac: mac },
+            "Node unpaired successfully",
+          );
+      }
+
+      function resetNode(mac) {
+        if (confirm("Send hardware reset command to this node?"))
+          sendApiRequest(
+            "/api/nodes/reset",
+            { mac: mac },
+            "Reset command sent",
+          );
+      }
+
+      async function fetchNodeConfig(mac) {
+        if (!mac) {
+          document.getElementById("form-node-config").reset();
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/api/nodes/config?mac=${encodeURIComponent(mac)}`,
+          );
+          if (response.ok) {
+            const data = await response.json();
+            if (!data || Object.keys(data).length === 0 || data.unconfigured) {
+              showToast("Node này chưa có thông tin cài đặt trước đó.", true);
+              document.getElementById("form-node-config").reset();
+              document.getElementById("select-config-node").value = mac;
+              return;
             }
 
-            // DOM Elements
-            const views = document.querySelectorAll('.view-section');
-            const navItems = document.querySelectorAll('.nav-item');
+            if (data.read_interval_ms !== undefined)
+              document.getElementById("read_interval_ms").value =
+                data.read_interval_ms;
+            if (data.min_temp_threshold !== undefined)
+              document.getElementById("min_temp_threshold").value =
+                data.min_temp_threshold;
+            if (data.max_temp_threshold !== undefined)
+              document.getElementById("max_temp_threshold").value =
+                data.max_temp_threshold;
+            if (data.min_humidity_threshold !== undefined)
+              document.getElementById("min_humidity_threshold").value =
+                data.min_humidity_threshold;
+            if (data.max_humidity_threshold !== undefined)
+              document.getElementById("max_humidity_threshold").value =
+                data.max_humidity_threshold;
 
-            const tempValue = document.getElementById('val-temp');
-            const humValue = document.getElementById('val-hum');
-            const connIndicator = document.getElementById('conn-indicator');
-            const connText = document.getElementById('conn-text');
-            const lastUpdateText = document.getElementById('last-update');
-            const dhtIndicator = document.getElementById('dht-indicator');
-            const dhtText = document.getElementById('dht-text');
-            const lcdIndicator = document.getElementById('lcd-indicator');
-            const lcdText = document.getElementById('lcd-text');
-            const aiIndicator = document.getElementById('ai-indicator');
-            const aiText = document.getElementById('ai-text');
+            showToast("Đã tải cấu hình hiện tại của Node.");
+          } else {
+            showToast("Node này chưa có thông tin cài đặt trước đó.", true);
+            document.getElementById("form-node-config").reset();
+            document.getElementById("select-config-node").value = mac;
+          }
+        } catch (error) {
+          console.log("Mock offline fetch config for", mac);
+          showToast("Node này chưa có thông tin cài đặt trước đó.", true);
+          document.getElementById("form-node-config").reset();
+          document.getElementById("select-config-node").value = mac;
+        }
+      }
 
-            let pollingInterval = null;
-            let pollDelay = 2000;
+      // --- SETTINGS FORMS ---
+      async function fetchSettings() {
+        try {
+          const res = await fetch("/api/settings");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.ap_ssid)
+              document.getElementById("ap_ssid").value = data.ap_ssid;
+            if (data.ap_password)
+              document.getElementById("ap_password").value = data.ap_password;
+            if (data.wifi_ssid)
+              document.getElementById("wifi_ssid").value = data.wifi_ssid;
+            if (data.wifi_password)
+              document.getElementById("wifi_password").value =
+                data.wifi_password;
+            if (data.core_iot_server)
+              document.getElementById("core_iot_server").value =
+                data.core_iot_server;
+            if (data.core_iot_port)
+              document.getElementById("core_iot_port").value =
+                data.core_iot_port;
+            if (data.core_iot_token)
+              document.getElementById("core_iot_token").value =
+                data.core_iot_token;
+            if (data.send_interval_ms)
+              document.getElementById("send_interval_ms").value =
+                data.send_interval_ms;
+          }
+        } catch (e) {
+          console.warn("Could not fetch system settings initially.");
+        }
+      }
 
-            let tempChart;
-            let humChart;
+      function setupFormHandler(formId, apiEndpoint) {
+        const form = document.getElementById(formId);
+        if (!form) return;
 
-            function initApp() {
-                switchView('dashboard');
+        const btn = form.querySelector('button[type="submit"]');
+        const btnText = btn.querySelector(".btn-text");
+        const loader = btn.querySelector(".loader");
+        const originalText = btnText.innerText;
 
-                // Initialize Charts (use CSS vars/colors matching the UI)
-                tempChart = new SimpleLineChart('chart-temp', '#f59e0b', 30); // warning-color
-                humChart = new SimpleLineChart('chart-hum', '#0284c7', 30);   // accent-color
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          btn.disabled = true;
+          btnText.innerText = "Saving...";
+          loader.style.display = "inline-block";
 
-                startPolling();
-                fetchDeviceStates();
-                fetchSettings();
-            }
+          const formData = new FormData(form);
+          const data = Object.fromEntries(formData.entries());
+          for (let key in data) {
+            if (!isNaN(data[key]) && data[key].trim() !== "")
+              data[key] = Number(data[key]);
+          }
 
-            // SPA Navigation
-            function switchView(viewName) {
-                views.forEach(v => v.classList.remove('active'));
-                navItems.forEach(n => n.classList.remove('active'));
+          try {
+            const response = await fetch(apiEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
 
-                document.getElementById(`view-${viewName}`).classList.add('active');
+            if (response.ok) {
+              showToast(`${originalText} Successful!`);
+              if (formId !== "form-node-config") fetchSettings();
+            } else throw new Error("Server rejected request");
+          } catch (error) {
+            showToast(`Error saving form`, true);
+          } finally {
+            btn.disabled = false;
+            btnText.innerText = originalText;
+            loader.style.display = "none";
+          }
+        });
+      }
 
-                Array.from(navItems).find(item =>
-                    item.getAttribute('onclick').includes(viewName)
-                ).classList.add('active');
-            }
+      setupFormHandler("form-ap", "/api/settings/ap");
+      setupFormHandler("form-wifi", "/api/settings/wifi");
+      setupFormHandler("form-cloud", "/api/settings/cloud");
+      setupFormHandler("form-add-node", "/api/nodes/pair");
+      setupFormHandler("form-node-config", "/api/settings/sensors");
 
-            // DASHBOARD: Fetch Sensor Data
-            async function fetchData() {
-                try {
-                    const response = await fetch('/api/data', {
-                        method: 'GET',
-                        headers: { 'Accept': 'application/json' }
-                    });
+      // --- UTILS ---
+      function showToast(message, isError = false) {
+        const toast = document.getElementById("toast");
+        toast.innerText = message;
+        if (isError) toast.classList.add("error");
+        else toast.classList.remove("error");
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        updateDashboard(data);
-                    } else {
-                        throw new Error("Server response error");
-                    }
-                } catch (error) {
-                    // console.error("Fetch Data Error:", error);
-                    // setConnectionStatus(false);
+        toast.classList.add("show");
+        setTimeout(() => {
+          toast.classList.remove("show");
+        }, 3000);
+      }
 
-                    console.log("Đang chạy chế độ giả lập offline...");
+      // Global exports
+      window.switchView = switchView;
+      window.toggleDevice = toggleDevice;
+      window.switchToWifiMode = switchToWifiMode;
+      window.unpairNode = unpairNode;
+      window.resetNode = resetNode;
+      window.fetchNodeConfig = fetchNodeConfig;
+      window.closeChartModal = closeChartModal;
 
-                    const mockData = {
-                        temperature: (25 + Math.random() * 20).toFixed(1), // Can go high to trigger warning
-                        humidity: (55 + Math.random() * 35).toFixed(1),    // Can go high to trigger warning
-                        dht_status: Math.random() > 0.1 ? "OK" : "ERROR",
-                        lcd_status: "OK",
-                        ml_prediction: Math.random() > 0.8 ? "Anomaly" : "Normal",
-                        min_temp_threshold: 0,
-                        max_temp_threshold: 35,
-                        min_humidity_threshold: 20,
-                        max_humidity_threshold: 80
-                    };
-
-                    updateDashboard(mockData);
-                }
-            }
-
-            function updateDashboard(data) {
-                if (data.temperature !== undefined) {
-                    let tempVal = parseFloat(data.temperature);
-                    tempValue.innerText = tempVal.toFixed(1);
-
-                    const tempCard = tempValue.closest('.sensor-card');
-                    const minTemp = data.min_temp_threshold !== undefined ? parseFloat(data.min_temp_threshold) : 0;
-                    const maxTemp = data.max_temp_threshold !== undefined ? parseFloat(data.max_temp_threshold) : 50;
-
-                    if (tempVal < minTemp || tempVal > maxTemp) {
-                        tempCard.classList.add('warning');
-                    } else {
-                        tempCard.classList.remove('warning');
-                    }
-
-                    if (tempChart) tempChart.addData(tempVal);
-                }
-                if (data.humidity !== undefined) {
-                    let humVal = parseFloat(data.humidity);
-                    humValue.innerText = humVal.toFixed(1);
-
-                    const humCard = humValue.closest('.sensor-card');
-                    const minHum = data.min_humidity_threshold !== undefined ? parseFloat(data.min_humidity_threshold) : 20;
-                    const maxHum = data.max_humidity_threshold !== undefined ? parseFloat(data.max_humidity_threshold) : 80;
-
-                    if (humVal < minHum || humVal > maxHum) {
-                        humCard.classList.add('warning');
-                    } else {
-                        humCard.classList.remove('warning');
-                    }
-
-                    if (humChart) humChart.addData(humVal);
-                }
-
-                if (data.dht_status) updatePeripheralStatus(dhtIndicator, dhtText, data.dht_status);
-                if (data.lcd_status) updatePeripheralStatus(lcdIndicator, lcdText, data.lcd_status);
-                
-                if (data.ml_prediction) {
-                    let displayText = data.ml_prediction;
-                    
-                    if (data.ml_confidence !== undefined && data.ml_confidence > 0) {
-                        displayText += ` (${Number(data.ml_confidence).toFixed(1)}%)`;
-                    }
-
-                    if (data.ml_prediction === "Normal" || data.ml_prediction === "Waiting for Data") {
-                        updatePeripheralStatus(aiIndicator, aiText, "OK"); 
-                        aiText.innerText = displayText;
-                    } else {
-                        updatePeripheralStatus(aiIndicator, aiText, "ERROR"); 
-                        aiText.innerText = displayText;
-                    }
-                }
-
-                const now = new Date();
-                lastUpdateText.innerText = now.toTimeString().split(' ')[0];
-                setConnectionStatus(true);
-            }
-
-            function setConnectionStatus(connected) {
-                if (connected) {
-                    connIndicator.classList.add('connected');
-                    connText.innerText = 'Online';
-                    connText.style.color = 'var(--success-color)';
-                } else {
-                    connIndicator.classList.remove('connected');
-                    connText.innerText = 'Offline';
-                    connText.style.color = 'var(--text-muted)';
-                }
-            }
-
-            function startPolling() {
-                if (pollingInterval) clearTimeout(pollingInterval);
-
-                fetchData().finally(() => {
-                    pollingInterval = setTimeout(startPolling, pollDelay);
-                });
-            }
-
-            // CONTROLS: Toggle Devices
-            async function fetchDeviceStates() {
-                try {
-                    const res = await fetch('/api/control');
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.device1 !== undefined) {
-                            document.getElementById('toggle-dev1').checked = (data.device1 === 'ON');
-                            document.getElementById('status-dev1').innerText = `State: ${data.device1}`;
-                        }
-                        if (data.device2 !== undefined) {
-                            document.getElementById('toggle-dev2').checked = (data.device2 === 'ON');
-                            document.getElementById('status-dev2').innerText = `State: ${data.device2}`;
-                        }
-                    }
-                } catch (e) {
-                    console.warn("Could not fetch device states initially.");
-                }
-            }
-
-            // SETTINGS: Fetch Current Configurations
-            async function fetchSettings() {
-                try {
-                    const res = await fetch('/api/settings');
-                    if (res.ok) {
-                        const data = await res.json();
-                        
-                        if(data.ap_ssid) document.getElementById('ap_ssid').value = data.ap_ssid;
-                        if(data.ap_password) document.getElementById('ap_password').value = data.ap_password;
-                        if(data.wifi_ssid) document.getElementById('wifi_ssid').value = data.wifi_ssid;
-                        if(data.wifi_password) document.getElementById('wifi_password').value = data.wifi_password;
-                        
-                        // Cloud data
-                        if(data.core_iot_server) document.getElementById('core_iot_server').value = data.core_iot_server;
-                        if(data.core_iot_port) document.getElementById('core_iot_port').value = data.core_iot_port;
-                        if(data.core_iot_token) document.getElementById('core_iot_token').value = data.core_iot_token;
-                        if(data.send_interval_ms) document.getElementById('send_interval_ms').value = data.send_interval_ms;
-                        
-                        // Sensor data
-                        if(data.read_interval_ms) document.getElementById('read_interval_ms').value = data.read_interval_ms;
-                        if(data.min_temp_threshold !== undefined) document.getElementById('min_temp_threshold').value = data.min_temp_threshold;
-                        if(data.max_temp_threshold !== undefined) document.getElementById('max_temp_threshold').value = data.max_temp_threshold;
-                        if(data.min_humidity_threshold !== undefined) document.getElementById('min_humidity_threshold').value = data.min_humidity_threshold;
-                        if(data.max_humidity_threshold !== undefined) document.getElementById('max_humidity_threshold').value = data.max_humidity_threshold;
-                    }
-                } catch (e) {
-                    console.warn("Could not fetch system settings initially.");
-                }
-            }
-
-            async function toggleDevice(deviceId, checkbox) {
-                const state = checkbox.checked ? "ON" : "OFF";
-                const payload = { device: deviceId, state: state };
-
-                const loader = document.getElementById(`loader-dev${deviceId}`);
-                const statusText = document.getElementById(`status-dev${deviceId}`);
-
-                checkbox.disabled = true;
-                loader.style.display = 'inline-block';
-
-                try {
-                    const response = await fetch('/api/control', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.ok) {
-                        statusText.innerText = `State: ${state}`;
-                        const result = await response.json();
-                        showToast(result.message || "Device 1 updated successfully!");
-                    } else {
-                        const result = await response.json();
-                        showToast(`Error: ${result.message}`, true);
-                    }
-                } catch (error) {
-                    console.error("Control Error:", error);
-                    showToast(`Failed to update Device ${deviceId}`, true);
-                    // Revert UI changes on failure
-                    checkbox.checked = !checkbox.checked;
-                } finally {
-                    loader.style.display = 'none';
-                    checkbox.disabled = false;
-                }
-            }
-
-            async function switchToWifiMode() {
-                try {
-                    const response = await fetch('/api/mode/wifi', { method: 'POST' });
-                    if (response.ok) {
-                        const result = await response.json();
-                        showToast(result.message || "Switching to WiFi Mode...");
-                    } else {
-                        const errText = await response.text();
-                        showToast(`Error: ${errText}`, true);
-                    }
-                } catch (error) {
-                    showToast("Connection Error!", true);
-                }
-            }
-
-            // SETTINGS
-            async function setupFormHandler(formId, apiEndpoint) {
-                const form = document.getElementById(formId);
-                if (!form) return;
-
-                const btn = form.querySelector('button[type="submit"]');
-                const btnText = btn.querySelector('.btn-text');
-                const loader = btn.querySelector('.loader');
-                const originalText = btnText.innerText;
-
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    btn.disabled = true;
-                    btnText.innerText = 'Saving...';
-                    loader.style.display = 'inline-block';
-
-                    const formData = new FormData(form);
-                    const data = Object.fromEntries(formData.entries());
-                    for (let key in data) {
-                        if (!isNaN(data[key]) && data[key].trim() !== '') {
-                            data[key] = Number(data[key]);
-                        }
-                    }
-
-                    try {
-                        const response = await fetch(apiEndpoint, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data)
-                        });
-
-                        if (response.ok) {
-                            const result = await response.json(); 
-                            const successMsg = result.message || `${originalText} Successful!`;
-                            showToast(successMsg);
-                            fetchSettings();
-                        } else {
-                            const errText = await response.text();
-                            throw new Error(errText || "Server rejected the request");
-                        }
-                    } catch (error) {
-                        console.error(`${formId} Error:`, error);
-                        showToast(`Error: ${error.message}`, true);
-                    } finally {
-                        btn.disabled = false;
-                        btnText.innerText = originalText;
-                        loader.style.display = 'none';
-                    }
-                });
-            }
-
-            setupFormHandler('form-ap', '/api/settings/ap');
-            setupFormHandler('form-wifi', '/api/settings/wifi');
-            setupFormHandler('form-cloud', '/api/settings/cloud');
-            setupFormHandler('form-sensors', '/api/settings/sensors');
-
-            // UTILS: Toast Notification
-            function showToast(message, isError = false) {
-                const toast = document.getElementById('toast');
-                toast.innerText = message;
-
-                if (isError) {
-                    toast.classList.add('error');
-                } else {
-                    toast.classList.remove('error');
-                }
-
-                toast.classList.add('show');
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
-            }
-
-            function updatePeripheralStatus(indicator, textElement, status) {
-                indicator.classList.remove('connected', 'error'); // Reset class
-                if (status === 'OK') {
-                    indicator.classList.add('connected');
-                    textElement.innerText = 'Connected';
-                    textElement.style.color = 'var(--success-color)';
-                } else {
-                    indicator.classList.add('error');
-                    textElement.innerText = 'Disconnected';
-                    textElement.style.color = 'var(--danger-color)';
-                }
-            }
-
-            window.switchView = switchView;
-            window.toggleDevice = toggleDevice;
-            window.switchToWifiMode = switchToWifiMode;
-            // Boot
-            initApp();
-
-        })();
-
+      initApp();
     </script>
-</body>
-
+  </body>
 </html>

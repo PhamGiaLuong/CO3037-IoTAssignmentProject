@@ -42,14 +42,19 @@
 #define MAX_PASS_LEN 64
 #define MAX_TOKEN_LEN 64
 #define MAX_SERVER_LEN 64
-#define EVENT_TEMP_WARNING (1 << 0)     // 0x112
-#define EVENT_SENSOR_ERROR (1 << 1)     // 0x121, 0x221
-#define EVENT_LCD_ERROR (1 << 2)        // 0x122
-#define EVENT_NET_AP_MODE (1 << 3)      // 0x131
-#define EVENT_COREIOT_DISCONN (1 << 4)  // 0x132
-#define EVENT_WIFI_DISCONN (1 << 5)     // 0x133
-#define EVENT_HUM_LOW (1 << 6)          // 0x211
-#define EVENT_HUM_HIGH (1 << 7)         // 0x213
+#define MAX_PAIRED_NODES 10
+#define MAC_STR_LEN 18
+
+// Sensor Node Flags (Task 1, 2, 3)
+#define SENSOR_FLAG_TEMP_WARN (1 << 0)
+#define SENSOR_FLAG_HUM_WARN (1 << 1)
+#define SENSOR_FLAG_DHT_ERR (1 << 2)
+#define SENSOR_FLAG_LCD_ERR (1 << 3)
+
+// Gateway Node Flags (Task 1, 4, 6)
+#define GW_FLAG_NET_AP_MODE (1 << 0)
+#define GW_FLAG_WIFI_DISCONN (1 << 1)
+#define GW_FLAG_COREIOT_DISCONN (1 << 2)
 
 // STRUCTS
 struct SensorData {
@@ -59,12 +64,24 @@ struct SensorData {
     bool is_lcd_ok;
 };
 
-struct ControlState {
-    bool is_device1_on;
-    bool is_device2_on;
+struct MlState {
+    char prediction[32];
+    float confidence;
 };
 
-struct SystemConfig {
+struct SensorConfig {
+    int16_t read_interval_ms;
+    float max_temp_threshold;
+    float min_temp_threshold;
+    float max_humidity_threshold;
+    float min_humidity_threshold;
+};
+
+struct SensorState {
+    uint16_t active_error_flags;
+};
+
+struct GatewayConfig {
     char ap_ssid[MAX_SSID_LEN];
     char ap_password[MAX_PASS_LEN];
     char wifi_ssid[MAX_SSID_LEN];
@@ -73,35 +90,41 @@ struct SystemConfig {
     char core_iot_server[MAX_SERVER_LEN];
     int16_t core_iot_port;
     int16_t send_interval_ms;
-    int16_t read_interval_ms;
-    float max_temp_threshold;
-    float min_temp_threshold;
-    float max_humidity_threshold;
-    float min_humidity_threshold;
 };
 
-struct SystemState {
+struct GatewayState {
     uint16_t active_error_flags;
     bool is_ap_mode;
     bool is_wifi_connected;
     bool is_coreiot_connected;
 };
 
-struct MlState {
-    char prediction[32];
-    float confidence;
+struct ControlState {
+    bool is_device1_on;
+    bool is_device2_on;
+};
+
+struct PairedNode {
+    char mac_address[MAC_STR_LEN];
+    char node_name[32];
+    bool is_active;
+
+    SensorData current_data;
+    MlState current_ml_state;
+    SensorConfig current_config;
 };
 
 // BINARY SEMAPHORES (Event Signaling)
-extern SemaphoreHandle_t temp_warning_semaphore;
-extern SemaphoreHandle_t hum_warning_semaphore;
-extern SemaphoreHandle_t sensor_error_semaphore;
+extern SemaphoreHandle_t gw_led_sync_semaphore;
 extern SemaphoreHandle_t wifi_error_semaphore;
 extern SemaphoreHandle_t coreiot_error_semaphore;
 extern SemaphoreHandle_t lcd_sync_semaphore;
 extern SemaphoreHandle_t switch_to_ap_semaphore;
 extern SemaphoreHandle_t switch_to_sta_semaphore;
-extern SemaphoreHandle_t led_sync_semaphore;
+
+extern SemaphoreHandle_t sensor_led_sync_semaphore;
+extern SemaphoreHandle_t neo_pixel_sync_semaphore;
+extern SemaphoreHandle_t lcd_sync_semaphore;
 
 // THREAD-SAFE LOGGING MACROS
 // Syntax: LOG_INFO("MODULE_NAME", "Message format", variables...);
@@ -135,30 +158,44 @@ void initGlobal();
 void loadConfigFromFlash();
 void saveConfigToFlash();
 
-// Sensor Data API
+// --- Shared Data APIs ---
 SensorData getSensorData();
 void setSensorData(const SensorData& data);
 
-// Control State API
-ControlState getControlState();
-void setControlState(const ControlState& state);
-
-// System Config API
-SystemConfig getSystemConfig();
-void setSystemConfig(const SystemConfig& config);
-
-// System State API
-SystemState getSystemState();
-void setSystemState(const SystemState& state);
-
-// ML State API
 MlState getMlState();
 void setMlState(const MlState& state);
 
-// Event Management API
-void setSystemErrorFlag(uint16_t flag);
-void clearSystemErrorFlag(uint16_t flag);
-bool checkSystemErrorFlag(uint16_t flag);
-uint32_t getActiveErrorFlags();
+// Sensor Node APIs
+SensorConfig getSensorConfig();
+void setSensorConfig(const SensorConfig& config);
+
+SensorState getSensorState();
+void setSensorErrorFlag(uint16_t flag);
+void clearSensorErrorFlag(uint16_t flag);
+bool checkSensorErrorFlag(uint16_t flag);
+uint32_t getSensorActiveErrorFlags();
+
+// Gateway Node APIs
+GatewayConfig getGatewayConfig();
+void setGatewayConfig(const GatewayConfig& config);
+
+bool addPairedNode(const char* mac, const char* name);
+bool removePairedNode(const char* mac);
+uint8_t getActiveNodeCount();
+uint8_t getPairedNodesSnapshot(PairedNode* out_array, uint8_t max_size);
+bool getNodeByMac(const char* mac, PairedNode* out_node);
+bool updateNodeConfig(const char* mac, const SensorConfig& new_config);
+bool updateNodeDataAndMl(const char* mac, const SensorData& new_data,
+                         const MlState& new_ml);
+
+GatewayState getGatewayState();
+void setGatewayState(const GatewayState& state);
+void setGatewayErrorFlag(uint16_t flag);
+void clearGatewayErrorFlag(uint16_t flag);
+bool checkGatewayErrorFlag(uint16_t flag);
+uint32_t getGatewayActiveErrorFlags();
+
+ControlState getControlState();
+void setControlState(const ControlState& state);
 
 #endif

@@ -164,7 +164,64 @@ Tuân thủ quy tắc để code thống nhất và dễ đọc:
 ```  
 ---
 
-## 4. Thông tin nhóm
+## 4. Hướng dẫn Thu thập dữ liệu, Huấn luyện và Deploy Mô hình TinyML (MLOps)
+
+Dự án áp dụng quy trình tự động hóa nhằm đơn giản hóa việc triển khai Machine Learning lên vi điều khiển. Mô hình phân loại 3 trạng thái: `0` (Normal - Bình thường), `1` (Door Open - Cửa mở), và `2` (System Fault - Lỗi hệ thống). Nhờ kỹ thuật Feature Engineering (Chuẩn hóa và Tốc độ thay đổi), mô hình độc lập với ngưỡng phần cứng (Threshold-Agnostic) và không cần train lại khi thay đổi buồng lạnh.
+
+### Bước 1: Thiết lập môi trường (Environment Setup)
+Khuyến nghị sử dụng Anaconda để quản lý môi trường ảo, tránh xung đột thư viện.
+
+1. Mở Terminal / Anaconda Prompt và di chuyển vào thư mục chứa code ML:
+   ```bash
+   cd tinyml
+   ```
+2. Khởi tạo và kích hoạt môi trường ảo với Python 3.10:
+   ```bash
+   conda create --name ccms-ml-training python=3.10 -y
+   conda activate ccms-ml-training
+   ```
+3. Cài đặt các thư viện cần thiết:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Bước 2: Thu thập dữ liệu (Data Collection)
+Đảm bảo ESP32 đang được cắm vào máy tính và liên tục in ra Serial định dạng `Temp,Hum\n` (ví dụ: `5.5,65.2`). Sử dụng script `data_collector.py` để đọc từ cổng COM và tự động lưu vào file `sensor_data.csv`.
+
+Chạy các lệnh sau tương ứng với từng kịch bản bạn muốn thu thập (thay `COM3` bằng cổng thực tế):
+
+* **Thu thập dữ liệu Bình thường (Label 0):**
+  ```bash
+  python data_collector.py --port COM3 --label 0
+  ```
+* **Thu thập dữ liệu Giả lập Mở cửa (Label 1):** (Nhiệt độ/Độ ẩm tăng nhanh đột ngột)
+  ```bash
+  python data_collector.py --port COM3 --label 1
+  ```
+* **Thu thập dữ liệu Giả lập Lỗi hệ thống (Label 2):** (Nhiệt độ tăng từ từ, rỉ rả do máy nén hỏng)
+  ```bash
+  python data_collector.py --port COM3 --label 2
+  ```
+*(Nhấn `Ctrl+C` để dừng thu thập và lưu file. Script sẽ tự động ghi nối tiếp (append) vào dataset).*
+
+### Bước 3: Huấn luyện và Export Mô hình (Model Training)
+Script `train_model.py` sẽ tự động tính toán trích xuất đặc trưng (t_norm, h_norm, t_speed, h_speed), chia tập dữ liệu, huấn luyện mạng Neural Network và lượng tử hóa (Quantization) mô hình.
+
+Chạy lệnh sau để bắt đầu huấn luyện:
+```bash
+python train_model.py
+```
+**Kết quả:** Sau khi quá trình hoàn tất, script sẽ tự động convert mô hình sang dạng C-array và lưu đè file `TinyML.h` trực tiếp vào thư mục `include/` của Project PlatformIO.
+
+### Bước 4: Triển khai lên ESP32-S3 (Deployment)
+Quá trình deploy hoàn toàn tự động nhờ sự liên kết thư mục ở Bước 3.
+1. Mở project trên **VS Code (PlatformIO)**.
+2. Chọn đúng môi trường build ở thanh trạng thái bên dưới (ví dụ: `env:node` dành cho Sensor Node).
+3. Nhấn **Build** và **Upload**. ESP32-S3 sẽ ngay lập tức chạy mô hình AI với tệp tạ giá trị trọng số mới nhất.
+
+---
+
+## 5. Thông tin nhóm
 * **Thành viên 1:** Phạm Gia Lương - 2211960 - luong.pham2211960@hcmut.edu.vn
 * **Thành viên 2:** Lê Quang Minh - 2212047 - minh.lelight@hcmut.edu.vn
-
+```
