@@ -13,5 +13,6 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 
 void tinyMlTask(void* pvParameters);
+void evaluateModelAccuracy();
 
 #endif  // __TINY_ML_H__

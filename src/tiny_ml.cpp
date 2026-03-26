@@ -59,6 +59,79 @@ static bool setupTinyMl() {
     return true;
 }
 
+void evaluateModelAccuracy() {
+    if (interpreter == nullptr || ml_input == nullptr || ml_output == nullptr) {
+        LOG_ERR("TINYML_TEST",
+                "Interpreter not initialized. Cannot run tests.");
+        return;
+    }
+
+    LOG_INFO("TINYML_TEST", "--- STARTING HARDWARE ACCURACY EVALUATION ---");
+
+    // Test: {t_norm, h_norm, t_speed, h_speed, Expected_Class}
+    float test_set[5][5] = {
+        {0.5, 0.5, 0.0, 0.0, CLASS_NORMAL},  // Test 1: Normal
+        {0.9, 0.9, 0.1, 0.1, CLASS_NORMAL},  // Test 2: Normal near threshold
+        {1.5, 1.2, 2.5, 15.0, CLASS_DOOR_OPEN},  // Test 3: Open door
+        {1.3, 0.8, 0.1, 0.0, CLASS_FAULT},       // Test 4: Faulty sensor
+        {0.2, 1.5, 0.0, 0.5, CLASS_FAULT}        // Test 5: Faulty sensor
+    };
+
+    int correct_predictions = 0;
+    const int num_tests = 5;
+
+    for (int i = 0; i < num_tests; i++) {
+        ml_input->data.f[0] = test_set[i][0];
+        ml_input->data.f[1] = test_set[i][1];
+        ml_input->data.f[2] = test_set[i][2];
+        ml_input->data.f[3] = test_set[i][3];
+
+        uint32_t start_time = micros();
+        TfLiteStatus invoke_status = interpreter->Invoke();
+        uint32_t end_time = micros();
+
+        if (invoke_status != kTfLiteOk) {
+            LOG_ERR("TINYML_TEST", "Test %d failed to invoke!", i + 1);
+            continue;
+        }
+
+        float p0 = ml_output->data.f[CLASS_NORMAL];
+        float p1 = ml_output->data.f[CLASS_DOOR_OPEN];
+        float p2 = ml_output->data.f[CLASS_FAULT];
+
+        int predicted_class = CLASS_NORMAL;
+        float max_p = p0;
+        if (p1 > max_p) {
+            predicted_class = CLASS_DOOR_OPEN;
+            max_p = p1;
+        }
+        if (p2 > max_p) {
+            predicted_class = CLASS_FAULT;
+            max_p = p2;
+        }
+
+        int expected_class = (int)test_set[i][4];
+        if (predicted_class == expected_class) {
+            correct_predictions++;
+        }
+
+        LOG_INFO("TINYML_TEST",
+                 "Test %d | Exp: %d | Pred: %d | Conf: %.2f | Time: %lu us",
+                 i + 1, expected_class, predicted_class, max_p,
+                 (unsigned long)(end_time - start_time));
+    }
+
+    float accuracy = (float)correct_predictions / num_tests * 100.0f;
+    size_t used_ram = interpreter->arena_used_bytes();
+
+    LOG_INFO("TINYML_TEST", "--- EVALUATION SUMMARY ---");
+    LOG_INFO("TINYML_TEST", "Hardware Accuracy: %d/%d (%.1f%%)",
+             correct_predictions, num_tests, accuracy);
+    LOG_INFO("TINYML_TEST", "RAM Used (Arena): %u bytes / %d bytes", used_ram,
+             TENSOR_ARENA_SIZE);
+    LOG_INFO("TINYML_TEST", "---------------------------------------------");
+}
+
 void tinyMlTask(void* pvParameters) {
     if (!setupTinyMl()) {
         LOG_ERR("TINYML", "Failed to start TinyML task due to init error.");
@@ -108,12 +181,19 @@ void tinyMlTask(void* pvParameters) {
         ml_input->data.f[3] = h_speed;
 
         // Run Inference
+        uint32_t start_time = micros();
         TfLiteStatus invoke_status = interpreter->Invoke();
+        uint32_t end_time = micros();
         if (invoke_status != kTfLiteOk) {
             LOG_WARN("TINYML", "Invoke failed");
             vTaskDelay(pdMS_TO_TICKS(TINYML_INFERENCE_INTERVAL_MS));
             continue;
         }
+        // Calculate inference time and memory usage for monitoring
+        uint32_t inference_time_us = end_time - start_time;
+        size_t used_ram_bytes = interpreter->arena_used_bytes();
+        // LOG_INFO("TINYML_METRICS", "Inference: %u us | RAM used: %d bytes",
+        //          inference_time_us, used_ram_bytes);
 
         // Process Output
         float prob_normal = ml_output->data.f[CLASS_NORMAL];
