@@ -3,3 +3,12 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Python & Machine Learning
+venv/
+.env/
+env/
+__pycache__/
+*.pyc
+*.h5
+*.tflite
