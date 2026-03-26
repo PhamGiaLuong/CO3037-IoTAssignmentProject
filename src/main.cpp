@@ -11,7 +11,8 @@ void setup() {
 
     // Create tasks
     // Task 1: Led blinky
-    xTaskCreate(ledBlinkyTask, "LedBlinkyTask", 2048, NULL, 2, NULL);
+    xTaskCreate(sensorLedBlinkyTask, "SensorLedTask", 2048, NULL, 2, NULL);
+    xTaskCreate(gatewayLedBlinkyTask, "GatewayLedTask", 2048, NULL, 2, NULL);
     // Task 2: RGB led
 
     // Task 3: Sensor reading & LCD display

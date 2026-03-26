@@ -2,7 +2,6 @@
 
 // MACROS & CONSTANTS
 #define JSON_DOC_SIZE 512
-#define HTTP_PORT 80
 
 static WebServer server(HTTP_PORT);
 
@@ -11,7 +10,9 @@ static void setupStaticFiles();
 static void setupDashboardApi();
 static void setupControlApi();
 static void setupSettingsApi();
+static void setupNodeApi();
 static void setupModeApi();
+static void initMockData();
 
 // Main Web Server Task
 void webServerTask(void* pvParameters) {
@@ -23,11 +24,13 @@ void webServerTask(void* pvParameters) {
         LOG_INFO("WEBSERVER", "LittleFS mounted successfully.");
     }
 
+    initMockData();
     // Register all routes and API endpoints
     setupStaticFiles();
     setupDashboardApi();
     setupControlApi();
     setupSettingsApi();
+    setupNodeApi();
     setupModeApi();
 
     // Start Web Server
@@ -92,22 +95,47 @@ static void setupStaticFiles() {
 // Module: Dashboard Sensor Data
 static void setupDashboardApi() {
     server.on("/api/data", HTTP_GET, []() {
-        SensorData s_data = getSensorData();
-        SystemConfig s_config = getSystemConfig();
-        MlState m_state = getMlState();
+        GatewayState gw_state = getGatewayState();
+        DynamicJsonDocument doc(4096);
 
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        JsonObject gw_obj = doc.createNestedObject("gateway");
+        gw_obj["status"] =
+            gw_state.is_coreiot_connected
+                ? "Online"
+                : (gw_state.is_wifi_connected ? "Online (No MQTT)" : "Offline");
+        gw_obj["espnow"] = "Active";
 
-        doc[JSON_TEMP] = s_data.current_temperature;
-        doc[JSON_HUM] = s_data.current_humidity;
-        doc[JSON_DHT_STATUS] = s_data.is_dht20_ok ? "OK" : "ERROR";
-        doc[JSON_LCD_STATUS] = s_data.is_lcd_ok ? "OK" : "ERROR";
-        doc[JSON_MIN_TEMP] = s_config.min_temp_threshold;
-        doc[JSON_MAX_TEMP] = s_config.max_temp_threshold;
-        doc[JSON_MIN_HUM] = s_config.min_humidity_threshold;
-        doc[JSON_MAX_HUM] = s_config.max_humidity_threshold;
-        doc[JSON_ML_PREDICTION] = m_state.prediction;
-        doc[JSON_ML_CONFIDENCE] = m_state.confidence * 100.0;
+        JsonArray nodes_arr = doc.createNestedArray("nodes");
+
+        // KHÔNG CẦN MUTEX Ở ĐÂY. Lấy Snapshot cực nhanh!
+        PairedNode snapshot_nodes[MAX_PAIRED_NODES];
+        uint8_t count =
+            getPairedNodesSnapshot(snapshot_nodes, MAX_PAIRED_NODES);
+
+        for (uint8_t i = 0; i < count; i++) {
+            JsonObject n = nodes_arr.createNestedObject();
+            n["mac"] = snapshot_nodes[i].mac_address;
+            n["name"] = snapshot_nodes[i].node_name;
+            n["temp"] =
+                String(snapshot_nodes[i].current_data.current_temperature, 1);
+            n["hum"] =
+                String(snapshot_nodes[i].current_data.current_humidity, 1);
+            n["prediction"] = snapshot_nodes[i].current_ml_state.prediction;
+
+            JsonObject periph = n.createNestedObject("periph");
+            periph["dht"] =
+                snapshot_nodes[i].current_data.is_dht20_ok ? "OK" : "ERR";
+            periph["lcd"] =
+                snapshot_nodes[i].current_data.is_lcd_ok ? "OK" : "ERR";
+
+            JsonObject conf = n.createNestedObject("config");
+            conf["t_min"] = snapshot_nodes[i].current_config.min_temp_threshold;
+            conf["t_max"] = snapshot_nodes[i].current_config.max_temp_threshold;
+            conf["h_min"] =
+                snapshot_nodes[i].current_config.min_humidity_threshold;
+            conf["h_max"] =
+                snapshot_nodes[i].current_config.max_humidity_threshold;
+        }
 
         String response;
         serializeJson(doc, response);
@@ -117,62 +145,57 @@ static void setupDashboardApi() {
 
 // Module: Relay Controls
 static void setupControlApi() {
-    // Read current device states
     server.on("/api/control", HTTP_GET, []() {
         ControlState c_state = getControlState();
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        StaticJsonDocument<256> doc;
 
-        doc[JSON_DEVICE1] = c_state.is_device1_on ? "ON" : "OFF";
-        doc[JSON_DEVICE2] = c_state.is_device2_on ? "ON" : "OFF";
+        doc["device1"] = c_state.is_device1_on ? "ON" : "OFF";
+        doc["device2"] = c_state.is_device2_on ? "ON" : "OFF";
 
         String response;
         serializeJson(doc, response);
         server.send(200, "application/json", response);
     });
 
-    // Update device states
     server.on("/api/control", HTTP_POST, []() {
-        if (!server.hasArg("plain")) {
+        if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON body");
-        }
 
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
-        if (deserializeJson(doc, server.arg("plain"))) {
+        StaticJsonDocument<256> doc;
+        if (deserializeJson(doc, server.arg("plain")))
             return server.send(400, "text/plain", "Invalid JSON format");
-        }
 
         int device_id = doc[JSON_DEVICE];
         String state_cmd = doc[JSON_STATE];
-        String message = "Invalid device or state command";
+        String message = "Invalid device";
 
         ControlState c_state = getControlState();
         if (device_id == 1) {
             c_state.is_device1_on = (state_cmd == "ON");
             setControlState(c_state);
             message = "Buzzer turned " + state_cmd;
+            LOG_INFO("WEBSERVER", "Device 1 set to %s", state_cmd.c_str());
+        } else if (device_id == 2) {
+            c_state.is_device2_on = (state_cmd == "ON");
+            setControlState(c_state);
+            message = "Cooler/Fan turned " + state_cmd;
+            LOG_INFO("WEBSERVER", "Device 2 set to %s", state_cmd.c_str());
         } else {
-            server.send(
-                400, "application/json",
-                "{\"status\":\"error\", \"message\":\"" + message + "\"}");
-            LOG_WARN("WEBSERVER", "Invalid device ID in control API: %d",
-                     device_id);
-            return;
+            return server.send(400, "application/json",
+                               "{\"status\":\"error\"}");
         }
-        LOG_INFO("WEBSERVER", "Device %d set to %s via Web", device_id,
-                 state_cmd.c_str());
 
         server.send(
             200, "application/json",
             "{\"status\":\"success\", \"message\":\"" + message + "\"}");
     });
 }
-
 // Module: System Configurations
 static void setupSettingsApi() {
-    // Get all current settings
+    // Chỉ lấy settings của riêng Gateway (Mạng, Cloud)
     server.on("/api/settings", HTTP_GET, []() {
-        SystemConfig config = getSystemConfig();
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        GatewayConfig config = getGatewayConfig();
+        StaticJsonDocument<512> doc;
 
         doc[JSON_AP_SSID] = config.ap_ssid;
         doc[JSON_AP_PASS] = config.ap_password;
@@ -182,128 +205,203 @@ static void setupSettingsApi() {
         doc[JSON_PORT] = config.core_iot_port;
         doc[JSON_TOKEN] = config.core_iot_token;
         doc[JSON_SEND_INTERVAL] = config.send_interval_ms;
-        doc[JSON_READ_INTERVAL] = config.read_interval_ms;
-        doc[JSON_MIN_TEMP] = config.min_temp_threshold;
-        doc[JSON_MAX_TEMP] = config.max_temp_threshold;
-        doc[JSON_MIN_HUM] = config.min_humidity_threshold;
-        doc[JSON_MAX_HUM] = config.max_humidity_threshold;
 
         String response;
         serializeJson(doc, response);
         server.send(200, "application/json", response);
     });
 
-    // Access Point settings
     server.on("/api/settings/ap", HTTP_POST, []() {
         if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON");
-
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        StaticJsonDocument<256> doc;
         deserializeJson(doc, server.arg("plain"));
 
-        SystemConfig config = getSystemConfig();
-        if (doc.containsKey(JSON_AP_SSID)) {
-            String ssid = doc[JSON_AP_SSID].as<String>();
-            strlcpy(config.ap_ssid, ssid.c_str(), MAX_SSID_LEN);
-        }
-        if (doc.containsKey(JSON_AP_PASS)) {
-            String pass = doc[JSON_AP_PASS].as<String>();
-            strlcpy(config.ap_password, pass.c_str(), MAX_PASS_LEN);
-        }
+        GatewayConfig config = getGatewayConfig();
+        if (doc.containsKey(JSON_AP_SSID))
+            strlcpy(config.ap_ssid, doc[JSON_AP_SSID].as<const char*>(),
+                    MAX_SSID_LEN);
+        if (doc.containsKey(JSON_AP_PASS))
+            strlcpy(config.ap_password, doc[JSON_AP_PASS].as<const char*>(),
+                    MAX_PASS_LEN);
 
-        LOG_INFO("WEBSERVER", "New AP SSID: %s, Password: %s", config.ap_ssid,
-                 config.ap_password);
-        setSystemConfig(config);
+        setGatewayConfig(config);
         saveConfigToFlash();
         LOG_INFO("WEBSERVER", "AP Settings updated");
-        server.send(
-            200, "application/json",
-            "{\"status\":\"success\", \"message\":\"AP Settings Saved!\"}");
+        server.send(200, "application/json", "{\"status\":\"success\"}");
     });
 
-    // WiFi Station settings
     server.on("/api/settings/wifi", HTTP_POST, []() {
         if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON");
-
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        StaticJsonDocument<256> doc;
         deserializeJson(doc, server.arg("plain"));
 
-        SystemConfig config = getSystemConfig();
-        if (doc.containsKey(JSON_WIFI_SSID)) {
-            String ssid = doc[JSON_WIFI_SSID].as<String>();
-            strlcpy(config.wifi_ssid, ssid.c_str(), MAX_SSID_LEN);
-        }
-        if (doc.containsKey(JSON_WIFI_PASS)) {
-            String pass = doc[JSON_WIFI_PASS].as<String>();
-            strlcpy(config.wifi_password, pass.c_str(), MAX_PASS_LEN);
-        }
+        GatewayConfig config = getGatewayConfig();
+        if (doc.containsKey(JSON_WIFI_SSID))
+            strlcpy(config.wifi_ssid, doc[JSON_WIFI_SSID].as<const char*>(),
+                    MAX_SSID_LEN);
+        if (doc.containsKey(JSON_WIFI_PASS))
+            strlcpy(config.wifi_password, doc[JSON_WIFI_PASS].as<const char*>(),
+                    MAX_PASS_LEN);
 
-        setSystemConfig(config);
+        setGatewayConfig(config);
         saveConfigToFlash();
         LOG_INFO("WEBSERVER", "WiFi Settings updated");
-        server.send(
-            200, "application/json",
-            "{\"status\":\"success\", \"message\":\"WiFi Settings Saved!\"}");
+        server.send(200, "application/json", "{\"status\":\"success\"}");
     });
 
-    // Core IoT settings
     server.on("/api/settings/cloud", HTTP_POST, []() {
         if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON");
-
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
+        StaticJsonDocument<512> doc;
         deserializeJson(doc, server.arg("plain"));
 
-        SystemConfig config = getSystemConfig();
-
-        if (doc.containsKey(JSON_SERVER)) {
-            String server_url = doc[JSON_SERVER].as<String>();
-            strlcpy(config.core_iot_server, server_url.c_str(), MAX_SERVER_LEN);
-        }
+        GatewayConfig config = getGatewayConfig();
+        if (doc.containsKey(JSON_SERVER))
+            strlcpy(config.core_iot_server, doc[JSON_SERVER].as<const char*>(),
+                    MAX_SERVER_LEN);
         if (doc.containsKey(JSON_PORT)) config.core_iot_port = doc[JSON_PORT];
-        if (doc.containsKey(JSON_TOKEN)) {
-            String token = doc[JSON_TOKEN].as<String>();
-            strlcpy(config.core_iot_token, token.c_str(), MAX_TOKEN_LEN);
-        }
+        if (doc.containsKey(JSON_TOKEN))
+            strlcpy(config.core_iot_token, doc[JSON_TOKEN].as<const char*>(),
+                    MAX_TOKEN_LEN);
         if (doc.containsKey(JSON_SEND_INTERVAL))
             config.send_interval_ms = doc[JSON_SEND_INTERVAL];
 
-        setSystemConfig(config);
+        setGatewayConfig(config);
         saveConfigToFlash();
-        LOG_INFO("WEBSERVER", "Cloud settings updated");
-        server.send(200, "application/json",
-                    "{\"status\":\"success\", \"message\":\"Cloud settings "
-                    "updated!\"}");
+        LOG_INFO("WEBSERVER", "Cloud Settings updated");
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+    });
+}
+
+static void setupNodeApi() {
+    // Get specific node config
+    server.on("/api/nodes/config", HTTP_GET, []() {
+        if (!server.hasArg("mac"))
+            return server.send(400, "application/json",
+                               "{\"error\":\"Missing MAC\"}");
+
+        String mac = server.arg("mac");
+        PairedNode target_node;
+
+        if (!getNodeByMac(mac.c_str(), &target_node)) {
+            return server.send(404, "application/json",
+                               "{\"unconfigured\":true}");
+        }
+
+        StaticJsonDocument<256> doc;
+        doc[JSON_READ_INTERVAL] = target_node.current_config.read_interval_ms;
+        doc[JSON_MIN_TEMP] = target_node.current_config.min_temp_threshold;
+        doc[JSON_MAX_TEMP] = target_node.current_config.max_temp_threshold;
+        doc[JSON_MIN_HUM] = target_node.current_config.min_humidity_threshold;
+        doc[JSON_MAX_HUM] = target_node.current_config.max_humidity_threshold;
+
+        String response;
+        serializeJson(doc, response);
+        server.send(200, "application/json", response);
     });
 
-    // Sensor Thresholds API
+    // Specific Node Config Update
     server.on("/api/settings/sensors", HTTP_POST, []() {
         if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON");
 
-        StaticJsonDocument<JSON_DOC_SIZE> doc;
-        deserializeJson(doc, server.arg("plain"));
+        StaticJsonDocument<512> doc;
+        if (deserializeJson(doc, server.arg("plain"))) {
+            return server.send(400, "application/json",
+                               "{\"error\":\"Invalid JSON\"}");
+        }
 
-        SystemConfig config = getSystemConfig();
+        if (!doc.containsKey("target_mac"))
+            return server.send(400, "application/json",
+                               "{\"error\":\"Missing target_mac\"}");
+
+        const char* mac = doc["target_mac"];
+        PairedNode target_node;
+
+        if (!getNodeByMac(mac, &target_node)) {
+            return server.send(404, "application/json",
+                               "{\"error\":\"Node not found\"}");
+        }
+
+        SensorConfig updated_config = target_node.current_config;
 
         if (doc.containsKey(JSON_READ_INTERVAL))
-            config.read_interval_ms = doc[JSON_READ_INTERVAL];
+            updated_config.read_interval_ms = doc[JSON_READ_INTERVAL];
         if (doc.containsKey(JSON_MIN_TEMP))
-            config.min_temp_threshold = doc[JSON_MIN_TEMP];
+            updated_config.min_temp_threshold = doc[JSON_MIN_TEMP];
         if (doc.containsKey(JSON_MAX_TEMP))
-            config.max_temp_threshold = doc[JSON_MAX_TEMP];
+            updated_config.max_temp_threshold = doc[JSON_MAX_TEMP];
         if (doc.containsKey(JSON_MIN_HUM))
-            config.min_humidity_threshold = doc[JSON_MIN_HUM];
+            updated_config.min_humidity_threshold = doc[JSON_MIN_HUM];
         if (doc.containsKey(JSON_MAX_HUM))
-            config.max_humidity_threshold = doc[JSON_MAX_HUM];
+            updated_config.max_humidity_threshold = doc[JSON_MAX_HUM];
 
-        setSystemConfig(config);
-        saveConfigToFlash();
-        LOG_INFO("WEBSERVER", "Sensor thresholds updated");
-        server.send(200, "application/json",
-                    "{\"status\":\"success\", \"message\":\"Sensor thresholds "
-                    "updated!\"}");
+        if (updateNodeConfig(mac, updated_config)) {
+            LOG_INFO("WEBSERVER", "Updated config for Node %s", mac);
+
+            // TODO: Gọi hàm esp_now_send() ở đây để push updated_config xuống
+            // cho Node
+
+            server.send(200, "application/json", "{\"status\":\"success\"}");
+        } else {
+            server.send(500, "application/json",
+                        "{\"error\":\"Failed to update config\"}");
+        }
+    });
+
+    // Pairing
+    server.on("/api/nodes/pair", HTTP_POST, []() {
+        if (!server.hasArg("plain"))
+            return server.send(400, "text/plain", "Missing JSON");
+
+        StaticJsonDocument<256> doc;
+        deserializeJson(doc, server.arg("plain"));
+
+        const char* mac = doc["mac"];
+        const char* name = doc["name"];
+
+        if (addPairedNode(mac, name)) {
+            LOG_INFO("WEBSERVER", "Paired new Node: %s [%s]", name, mac);
+            // TODO: Gọi hàm esp_now_add_peer() ở đây
+            server.send(200, "application/json", "{\"status\":\"success\"}");
+        } else {
+            server.send(400, "application/json",
+                        "{\"error\":\"Failed to add node\"}");
+        }
+    });
+
+    // Unpair
+    server.on("/api/nodes/unpair", HTTP_POST, []() {
+        if (!server.hasArg("plain"))
+            return server.send(400, "text/plain", "Missing JSON");
+        StaticJsonDocument<128> doc;
+        deserializeJson(doc, server.arg("plain"));
+
+        const char* mac = doc["mac"];
+        if (removePairedNode(mac)) {
+            LOG_INFO("WEBSERVER", "Unpaired Node: %s", mac);
+            // TODO: Gọi hàm esp_now_del_peer() ở đây
+            server.send(200, "application/json", "{\"status\":\"success\"}");
+        } else {
+            server.send(404, "application/json",
+                        "{\"error\":\"Node not found\"}");
+        }
+    });
+
+    // Hardware Reset Command
+    server.on("/api/nodes/reset", HTTP_POST, []() {
+        if (!server.hasArg("plain"))
+            return server.send(400, "text/plain", "Missing JSON");
+        StaticJsonDocument<128> doc;
+        deserializeJson(doc, server.arg("plain"));
+
+        const char* mac = doc["mac"];
+        LOG_INFO("WEBSERVER", "Sending RESET command to Node: %s", mac);
+        // TODO: Gọi hàm esp_now_send() chứa mã lệnh CMD_RESET xuống cho Node
+
+        server.send(200, "application/json", "{\"status\":\"success\"}");
     });
 }
 
@@ -318,4 +416,17 @@ static void setupModeApi() {
                     "{\"status\":\"switching\", \"message\":\"Switching to "
                     "WiFi Mode...\"}");
     });
+}
+
+static void initMockData() {
+    addPairedNode("AA:BB:CC:DD:EE:11", "Cold Room 01");
+    addPairedNode("AA:BB:CC:DD:EE:22", "Cold Room 02");
+
+    SensorData d1 = {4.5, 85.0, true, true};
+    MlState ml1 = {"Normal", 98.5};
+    updateNodeDataAndMl("AA:BB:CC:DD:EE:11", d1, ml1);
+
+    SensorData d2 = {12.0, 70.0, true, false};
+    MlState ml2 = {"Anomaly", 85.2};
+    updateNodeDataAndMl("AA:BB:CC:DD:EE:22", d2, ml2);
 }
