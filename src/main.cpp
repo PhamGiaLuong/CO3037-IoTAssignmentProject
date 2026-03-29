@@ -1,9 +1,9 @@
 #include "global.h"
 #include "hardware_manager.h"
-#include "lcdDisplayTask.h"
-#include "neopixelTask.h"
+#include "lcd_display.h"
+#include "neo_pixel.h"
 #include "network_manager.h"
-#include "readSensorTask.h"
+#include "read_sensor.h"
 #include "web_server.h"
 
 void setup() {

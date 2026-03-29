@@ -24,7 +24,7 @@ void startStaMode(char* ssid = nullptr, char* password = nullptr) {
 }
 
 void startApMode() {
-    SystemConfig config = getSystemConfig();
+    GatewayConfig config = getGatewayConfig();
     WiFi.mode(WIFI_AP);
     WiFi.softAP(config.ap_ssid, config.ap_password);
 
@@ -32,15 +32,15 @@ void startApMode() {
     dns_server.start(DNS_PORT, "*", WiFi.softAPIP());
 
     // Update System State
-    SystemState state = getSystemState();
+    GatewayState state = getGatewayState();
     state.is_ap_mode = true;
     state.is_wifi_connected = false;
     state.is_coreiot_connected = false;
-    setSystemState(state);
+    setGatewayState(state);
 
-    setSystemErrorFlag(EVENT_NET_AP_MODE);
-    setSystemErrorFlag(EVENT_WIFI_DISCONN);
-    setSystemErrorFlag(EVENT_COREIOT_DISCONN);
+    setGatewayErrorFlag(GW_FLAG_NET_AP_MODE);
+    setGatewayErrorFlag(GW_FLAG_WIFI_DISCONN);
+    setGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
 
     LOG_INFO("NETWORK", "Starting AP Mode. SSID: %s, Password: %s, IP: %s",
              config.ap_ssid, config.ap_password,
@@ -67,7 +67,7 @@ void networkTask(void* pvParameters) {
         // Network State Machine
         switch (current_state) {
             case STATE_INIT: {
-                SystemConfig config = getSystemConfig();
+                GatewayConfig config = getGatewayConfig();
                 // Check if WiFi config is saved (Length > 0)
                 if (strlen(config.wifi_ssid) > 0) {
                     current_state = STATE_STA_CONNECTING;
@@ -83,20 +83,20 @@ void networkTask(void* pvParameters) {
                 if (WiFi.status() == WL_CONNECTED) {
                     current_state = STATE_STA_CONNECTED;
 
-                    SystemState state = getSystemState();
+                    GatewayState state = getGatewayState();
                     state.is_wifi_connected = true;
                     state.is_ap_mode = false;
-                    setSystemState(state);
+                    setGatewayState(state);
 
-                    clearSystemErrorFlag(EVENT_NET_AP_MODE);
-                    clearSystemErrorFlag(EVENT_WIFI_DISCONN);
+                    clearGatewayErrorFlag(GW_FLAG_NET_AP_MODE);
+                    clearGatewayErrorFlag(GW_FLAG_WIFI_DISCONN);
                     LOG_INFO("NETWORK", "STA Connected! IP: %s",
                              WiFi.localIP().toString().c_str());
                 } else if (millis() - start_connect_time > WIFI_TIMEOUT_MS) {
                     // Check 10s timeout condition
                     LOG_WARN("NETWORK",
                              "STA Connection timeout! Fallback to AP Mode.");
-                    setSystemErrorFlag(EVENT_WIFI_DISCONN);
+                    setGatewayErrorFlag(GW_FLAG_WIFI_DISCONN);
                     xSemaphoreGive(wifi_error_semaphore);
                     current_state = STATE_AP_MODE;
                     startApMode();
@@ -107,13 +107,13 @@ void networkTask(void* pvParameters) {
                 if (WiFi.status() != WL_CONNECTED) {
                     LOG_WARN("NETWORK",
                              "STA Disconnected! Attempting to reconnect...");
-                    setSystemErrorFlag(EVENT_WIFI_DISCONN);
-                    setSystemErrorFlag(EVENT_COREIOT_DISCONN);
+                    setGatewayErrorFlag(GW_FLAG_WIFI_DISCONN);
+                    setGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
 
-                    SystemState state = getSystemState();
+                    GatewayState state = getGatewayState();
                     state.is_wifi_connected = false;
                     state.is_coreiot_connected = false;
-                    setSystemState(state);
+                    setGatewayState(state);
 
                     xSemaphoreGive(wifi_error_semaphore);
                     xSemaphoreGive(coreiot_error_semaphore);
@@ -139,7 +139,7 @@ void networkTask(void* pvParameters) {
 
                 // Wait for explicit signal from WebServer to switch to STA
                 if (xSemaphoreTake(switch_to_sta_semaphore, 0) == pdTRUE) {
-                    SystemConfig config = getSystemConfig();
+                    GatewayConfig config = getGatewayConfig();
                     if (strlen(config.wifi_ssid) == 0) {
                         LOG_ERR(
                             "NETWORK",

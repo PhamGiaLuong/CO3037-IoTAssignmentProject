@@ -52,6 +52,7 @@
 #define GW_FLAG_NET_AP_MODE (1 << 0)
 #define GW_FLAG_WIFI_DISCONN (1 << 1)
 #define GW_FLAG_COREIOT_DISCONN (1 << 2)
+#define GW_FLAG_ESPNOW_ERR (1 << 3)
 
 // STRUCTS
 struct SensorData {

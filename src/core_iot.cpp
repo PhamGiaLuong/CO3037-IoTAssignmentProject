@@ -1,11 +1,13 @@
-#include "coreIotTask.h"
+#include "core_iot.h"
+
+#include "read_sensor.h"
 
 WiFiClient wifi_client;
 PubSubClient mqtt_client(wifi_client);
 
 String buildJsonPlayload() {
     SensorData data = getSensorData();
-    uint32_t flags = getActiveErrorFlags();
+    uint32_t flags = getSensorActiveErrorFlags();
     StaticJsonDocument<256> doc;
 
     if (data.is_dht20_ok) {
@@ -16,7 +18,7 @@ String buildJsonPlayload() {
         doc["humidity"] = nullptr;
     }
 
-    if (flags & EVENT_SENSOR_ERROR) {
+    if (flags & SENSOR_FLAG_DHT_ERR) {
         doc["status"] = "SENSOR_FAULT";
     } else if (flags & (EVENT_TEMP_HIGH | EVENT_TEMP_LOW)) {
         doc["status"] = "CRITICAL_TEMP";
@@ -37,9 +39,10 @@ void coreIotTask(void* pvParematers) {
         "ColdChanin_GW_" + String((uint32_t)ESP.getEfuseMac(), HEX);
 
     while (1) {
-        SystemConfig config = getSystemConfig();
-        if (checkSystemErrorFlag(EVENT_WIFI_DISCONN)) {
+        GatewayConfig config = getGatewayConfig();
+        if (checkSensorErrorFlag(GW_FLAG_WIFI_DISCONN)) {
             LOG_WARN("IOT", "Wifi disconnected, cannot publish data");
+            xSemaphoreGive(wifi_error_semaphore);
 
             vTaskDelay(pdMS_TO_TICKS(2000));
             continue;
@@ -52,12 +55,12 @@ void coreIotTask(void* pvParematers) {
             if (mqtt_client.connect(client_id.c_str(), config.core_iot_token,
                                     NULL)) {
                 LOG_INFO("IOT", "Connected MQTT");
-                clearSystemErrorFlag(EVENT_COREIOT_DISCONN);
+                clearGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
             } else {
-                if (!checkSystemErrorFlag(EVENT_COREIOT_DISCONN)) {
+                if (!checkGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN)) {
                     LOG_ERR("IOT", "MQTT connected fail RC=%d",
                             mqtt_client.state());
-                    setSystemErrorFlag(EVENT_COREIOT_DISCONN);
+                    setGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
                 }
                 vTaskDelay(pdMS_TO_TICKS(5000));
                 continue;
