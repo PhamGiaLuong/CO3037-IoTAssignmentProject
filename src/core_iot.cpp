@@ -5,8 +5,15 @@
 WiFiClient wifi_client;
 PubSubClient mqtt_client(wifi_client);
 
+const char* wifi_ssid = "Computer Virus";
+const char* wifi_password = "12346789";
+
 String buildJsonPlayload() {
-    SensorData data = getSensorData();
+    // SensorData data = getSensorData();
+    float mock_temp = random(20, 85) / 10.0;
+
+    float mock_hum = random(500, 900) / 10.0;
+    SensorData data = {mock_temp, mock_hum, true, true};
     uint32_t flags = getSensorActiveErrorFlags();
     StaticJsonDocument<256> doc;
 
@@ -18,15 +25,15 @@ String buildJsonPlayload() {
         doc["humidity"] = nullptr;
     }
 
-    if (flags & SENSOR_FLAG_DHT_ERR) {
-        doc["status"] = "SENSOR_FAULT";
-    } else if (flags & (EVENT_TEMP_HIGH | EVENT_TEMP_LOW)) {
-        doc["status"] = "CRITICAL_TEMP";
-    } else if (flags & (EVENT_HUM_HIGH | EVENT_HUM_LOW)) {
-        doc["status"] = "HUMIDITY_WARN";
-    } else {
-        doc["status"] = "NORMAL";
-    }
+    // if (flags & SENSOR_FLAG_DHT_ERR) {
+    //     doc["status"] = "SENSOR_FAULT";
+    // } else if (flags & (EVENT_TEMP_HIGH | EVENT_TEMP_LOW)) {
+    //     doc["status"] = "CRITICAL_TEMP";
+    // } else if (flags & (EVENT_HUM_HIGH | EVENT_HUM_LOW)) {
+    //     doc["status"] = "HUMIDITY_WARN";
+    // } else {
+    //     doc["status"] = "NORMAL";
+    // }
 
     String pay_load;
     serializeJson(doc, pay_load);
@@ -35,12 +42,20 @@ String buildJsonPlayload() {
 
 void coreIotTask(void* pvParematers) {
     LOG_INFO("IOT", "Core IoT task started");
+    Serial.print("Connecting to WiFi...");
+    WiFi.begin(wifi_ssid, wifi_password);
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
+    }
     String client_id =
         "ColdChanin_GW_" + String((uint32_t)ESP.getEfuseMac(), HEX);
 
     while (1) {
         GatewayConfig config = getGatewayConfig();
-        if (checkSensorErrorFlag(GW_FLAG_WIFI_DISCONN)) {
+        strlcpy(config.core_iot_server, "app.coreiot.io", MAX_SERVER_LEN);
+        config.core_iot_port = 1883;
+        strlcpy(config.core_iot_token, "core_iot_01", MAX_TOKEN_LEN);
+        if (checkGatewayErrorFlag(GW_FLAG_WIFI_DISCONN)) {
             LOG_WARN("IOT", "Wifi disconnected, cannot publish data");
             xSemaphoreGive(wifi_error_semaphore);
 
@@ -73,7 +88,7 @@ void coreIotTask(void* pvParematers) {
             (xSemaphoreTake(coreiot_error_semaphore, wait_time) == pdTRUE);
         String pay_load = buildJsonPlayload();
 
-        const char* topic_telemetry = "devices/node01/telemetry";
+        const char* topic_telemetry = "esp/telemetry";
 
         if (mqtt_client.publish(topic_telemetry, pay_load.c_str())) {
             if (is_urgen_event) {
