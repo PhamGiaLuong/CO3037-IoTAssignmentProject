@@ -48,6 +48,7 @@
 #define SENSOR_FLAG_DHT_ERR (1 << 2)
 #define SENSOR_FLAG_LCD_ERR (1 << 3)
 #define SENSOR_FLAG_ESPNOW_DISCONN (1 << 4)
+#define SENSOR_FLAG_UNPAIRED (1 << 5)
 
 // Gateway Node Flags (Task 1, 4, 6)
 #define GW_FLAG_NET_AP_MODE (1 << 0)

@@ -136,6 +136,12 @@ void espNowSensorTask(void* pvParameters) {
     size_t mac_len = prefs.getBytes("gw_mac", gateway_mac, 6);
     is_sensor_paired = (mac_len == 6);
 
+    if (!is_sensor_paired) {
+        setSensorErrorFlag(SENSOR_FLAG_UNPAIRED);
+    } else {
+        clearSensorErrorFlag(SENSOR_FLAG_UNPAIRED);
+    }
+
     uint8_t current_channel = prefs.getUChar("esp_channel", 1);
     esp_wifi_set_promiscuous(true);
     esp_wifi_set_channel(current_channel, WIFI_SECOND_CHAN_NONE);
@@ -154,8 +160,6 @@ void espNowSensorTask(void* pvParameters) {
     } else {
         LOG_INFO("ESPNOW_SN",
                  "Not paired. Waiting for pairing via Gateway WebServer...");
-        // TODO: The LCD task should read `is_sensor_paired` and display its own
-        // MAC if false.
     }
 
     while (1) {
@@ -183,6 +187,8 @@ void espNowSensorTask(void* pvParameters) {
                     esp_now_add_peer(&peerInfo);
 
                     is_sensor_paired = true;
+                    clearSensorErrorFlag(SENSOR_FLAG_UNPAIRED);
+
                     LOG_INFO("ESPNOW_SN", "Paired successfully! Room Name: %s",
                              pair_msg->room_name);
                 } else if (pair_msg->pair_state == 0x02) {  // Unpair Request
@@ -192,6 +198,8 @@ void espNowSensorTask(void* pvParameters) {
                     memset(gateway_mac, 0xFF, 6);
                     prefs.remove("gw_mac");
                     is_sensor_paired = false;
+                    setSensorErrorFlag(SENSOR_FLAG_UNPAIRED);
+
                     LOG_INFO("ESPNOW_SN", "Unpaired from Gateway.");
                 }
 

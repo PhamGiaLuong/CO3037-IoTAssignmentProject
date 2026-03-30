@@ -22,7 +22,7 @@ uint8_t scanLCDAddress() {
     return 0x00;
 }
 
-void lcdDisplayTask(void *pvParameters) {
+void lcdDisplayTask(void* pvParameters) {
     LOG_INFO("LCD", "LCD display task started");
 
     // Call func to scan address
@@ -41,7 +41,7 @@ void lcdDisplayTask(void *pvParameters) {
              default_addr);
 
     // Cấp phát địa chỉ mới vừa đọc được
-    LiquidCrystal_I2C *lcd = new LiquidCrystal_I2C(default_addr, 16, 2);
+    LiquidCrystal_I2C* lcd = new LiquidCrystal_I2C(default_addr, 16, 2);
     lcd->begin();
     lcd->backlight();
 
@@ -85,6 +85,25 @@ void lcdDisplayTask(void *pvParameters) {
         if (data.is_lcd_ok == false) {
             data.is_lcd_ok = true;
             setSensorData(data);
+        }
+
+        if (current_flag & SENSOR_FLAG_UNPAIRED) {
+            if (is_new_data) {
+                lcd->setCursor(0, 0);
+                lcd->print("WAITING PAIRING ");
+
+                String macStr = WiFi.macAddress();
+                // Remove colons from MAC address for better display
+                macStr.replace(":", "");
+
+                lcd->setCursor(0, 1);
+                lcd->printf("MAC %-12s", macStr.c_str());
+                lcd->backlight();
+
+                // Sleep
+                wait_time = portMAX_DELAY;
+            }
+            continue;  // Skip the rest of the loop if unpaired
         }
 
         // 1. TÍNH TOÁN DẢI ĐO (RANGE) VÀ BIÊN ĐỘ (MARGIN)
