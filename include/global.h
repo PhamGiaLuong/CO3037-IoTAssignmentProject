@@ -50,11 +50,13 @@
 #define SENSOR_FLAG_HUM_WARN (1 << 1)
 #define SENSOR_FLAG_DHT_ERR (1 << 2)
 #define SENSOR_FLAG_LCD_ERR (1 << 3)
+#define SENSOR_FLAG_ESPNOW_DISCONN (1 << 4)
 
 // Gateway Node Flags (Task 1, 4, 6)
 #define GW_FLAG_NET_AP_MODE (1 << 0)
 #define GW_FLAG_WIFI_DISCONN (1 << 1)
 #define GW_FLAG_COREIOT_DISCONN (1 << 2)
+#define GW_FLAG_ESPNOW_ERR (1 << 3)
 
 // STRUCTS
 struct SensorData {
@@ -107,11 +109,28 @@ struct ControlState {
 struct PairedNode {
     char mac_address[MAC_STR_LEN];
     char node_name[32];
-    bool is_active;
+    bool is_active;  // Pairing status
+    bool is_online;  // Updated based on last communication
+    uint32_t last_seen_millis;
 
     SensorData current_data;
     MlState current_ml_state;
     SensorConfig current_config;
+};
+
+enum GwDownlinkType {
+    DOWNLINK_SYNC_CONFIG,
+    DOWNLINK_CONTROL_CMD,
+    DOWNLINK_PAIRING,
+    DOWNLINK_UNPAIR
+};
+
+struct GwDownlinkMessage {
+    GwDownlinkType type;
+    char target_mac[MAC_STR_LEN];
+    uint8_t cmd_code;    // Used for MSG_CONTROL_CMD
+    uint32_t cmd_param;  // Used for MSG_CONTROL_CMD
+    char room_name[32];  // Used for MSG_PAIRING
 };
 
 // BINARY SEMAPHORES (Event Signaling)
@@ -125,6 +144,9 @@ extern SemaphoreHandle_t switch_to_sta_semaphore;
 extern SemaphoreHandle_t sensor_led_sync_semaphore;
 extern SemaphoreHandle_t neo_pixel_sync_semaphore;
 extern SemaphoreHandle_t lcd_sync_semaphore;
+
+extern SemaphoreHandle_t sensor_send_telemetry_semaphore;
+extern QueueHandle_t gw_downlink_queue;  // Queue for downlink messages
 
 // THREAD-SAFE LOGGING MACROS
 // Syntax: LOG_INFO("MODULE_NAME", "Message format", variables...);
@@ -187,6 +209,8 @@ bool getNodeByMac(const char* mac, PairedNode* out_node);
 bool updateNodeConfig(const char* mac, const SensorConfig& new_config);
 bool updateNodeDataAndMl(const char* mac, const SensorData& new_data,
                          const MlState& new_ml);
+void updateNodeHeartbeat(const char* mac);
+void checkNodesOnlineStatus(uint32_t timeout_ms);
 
 GatewayState getGatewayState();
 void setGatewayState(const GatewayState& state);

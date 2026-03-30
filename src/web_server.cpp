@@ -107,7 +107,6 @@ static void setupDashboardApi() {
 
         JsonArray nodes_arr = doc.createNestedArray("nodes");
 
-        // KHÔNG CẦN MUTEX Ở ĐÂY. Lấy Snapshot cực nhanh!
         PairedNode snapshot_nodes[MAX_PAIRED_NODES];
         uint8_t count =
             getPairedNodesSnapshot(snapshot_nodes, MAX_PAIRED_NODES);
@@ -116,6 +115,7 @@ static void setupDashboardApi() {
             JsonObject n = nodes_arr.createNestedObject();
             n["mac"] = snapshot_nodes[i].mac_address;
             n["name"] = snapshot_nodes[i].node_name;
+            n["is_online"] = snapshot_nodes[i].is_online;
             n["temp"] =
                 String(snapshot_nodes[i].current_data.current_temperature, 1);
             n["hum"] =
@@ -192,7 +192,7 @@ static void setupControlApi() {
 }
 // Module: System Configurations
 static void setupSettingsApi() {
-    // Chỉ lấy settings của riêng Gateway (Mạng, Cloud)
+    // Gateway settings (Network, Cloud)
     server.on("/api/settings", HTTP_GET, []() {
         GatewayConfig config = getGatewayConfig();
         StaticJsonDocument<512> doc;
@@ -338,11 +338,15 @@ static void setupNodeApi() {
         if (doc.containsKey(JSON_MAX_HUM))
             updated_config.max_humidity_threshold = doc[JSON_MAX_HUM];
 
+        // Update local config
         if (updateNodeConfig(mac, updated_config)) {
             LOG_INFO("WEBSERVER", "Updated config for Node %s", mac);
 
-            // TODO: Gọi hàm esp_now_send() ở đây để push updated_config xuống
-            // cho Node
+            // Send Sync Config command via ESP-NOW to the specific Node
+            GwDownlinkMessage cmd_msg;
+            cmd_msg.type = DOWNLINK_SYNC_CONFIG;
+            strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
+            xQueueSend(gw_downlink_queue, &cmd_msg, 0);
 
             server.send(200, "application/json", "{\"status\":\"success\"}");
         } else {
@@ -362,17 +366,26 @@ static void setupNodeApi() {
         const char* mac = doc["mac"];
         const char* name = doc["name"];
 
+        // Add to paired list
         if (addPairedNode(mac, name)) {
             LOG_INFO("WEBSERVER", "Paired new Node: %s [%s]", name, mac);
-            // TODO: Gọi hàm esp_now_add_peer() ở đây
+
+            // Send Pairing command via ESP-NOW to the new Node
+            GwDownlinkMessage cmd_msg;
+            cmd_msg.type = DOWNLINK_PAIRING;
+            strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
+            strlcpy(cmd_msg.room_name, name, 32);
+            xQueueSend(gw_downlink_queue, &cmd_msg, 0);
+
             server.send(200, "application/json", "{\"status\":\"success\"}");
         } else {
-            server.send(400, "application/json",
-                        "{\"error\":\"Failed to add node\"}");
+            server.send(
+                400, "application/json",
+                "{\"error\":\"Failed to add node (List Full or Exists)\"}");
         }
     });
 
-    // Unpair
+    // Unpairing
     server.on("/api/nodes/unpair", HTTP_POST, []() {
         if (!server.hasArg("plain"))
             return server.send(400, "text/plain", "Missing JSON");
@@ -380,9 +393,17 @@ static void setupNodeApi() {
         deserializeJson(doc, server.arg("plain"));
 
         const char* mac = doc["mac"];
+
+        // Delete from paired list
         if (removePairedNode(mac)) {
             LOG_INFO("WEBSERVER", "Unpaired Node: %s", mac);
-            // TODO: Gọi hàm esp_now_del_peer() ở đây
+
+            // Send Unpairing command via ESP-NOW to the Node
+            GwDownlinkMessage cmd_msg;
+            cmd_msg.type = DOWNLINK_UNPAIR;
+            strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
+            xQueueSend(gw_downlink_queue, &cmd_msg, 0);
+
             server.send(200, "application/json", "{\"status\":\"success\"}");
         } else {
             server.send(404, "application/json",
@@ -398,10 +419,24 @@ static void setupNodeApi() {
         deserializeJson(doc, server.arg("plain"));
 
         const char* mac = doc["mac"];
-        LOG_INFO("WEBSERVER", "Sending RESET command to Node: %s", mac);
-        // TODO: Gọi hàm esp_now_send() chứa mã lệnh CMD_RESET xuống cho Node
 
-        server.send(200, "application/json", "{\"status\":\"success\"}");
+        // Create and send Reset command via ESP-NOW to the Node
+        GwDownlinkMessage cmd_msg;
+        cmd_msg.type = DOWNLINK_CONTROL_CMD;
+        strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
+        cmd_msg.cmd_code = 0xAA;  // CMD_HARD_RESET
+        cmd_msg.cmd_param = 0;
+
+        // Use non-blocking send to avoid potential deadlocks if the queue is
+        // full
+        if (xQueueSend(gw_downlink_queue, &cmd_msg, pdMS_TO_TICKS(100)) ==
+            pdPASS) {
+            LOG_INFO("WEBSERVER", "Queued RESET command for Node: %s", mac);
+            server.send(200, "application/json", "{\"status\":\"success\"}");
+        } else {
+            LOG_ERR("WEBSERVER", "Queue full! Drop RESET command.");
+            server.send(503, "application/json", "{\"status\":\"busy\"}");
+        }
     });
 }
 

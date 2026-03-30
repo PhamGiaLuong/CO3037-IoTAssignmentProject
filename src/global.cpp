@@ -43,6 +43,8 @@ SemaphoreHandle_t switch_to_ap_semaphore = NULL;
 SemaphoreHandle_t switch_to_sta_semaphore = NULL;
 SemaphoreHandle_t wifi_error_semaphore = NULL;
 SemaphoreHandle_t coreiot_error_semaphore = NULL;
+SemaphoreHandle_t sensor_send_telemetry_semaphore = NULL;
+QueueHandle_t gw_downlink_queue = NULL;
 
 // SYSTEM INITIALIZATION
 void initGlobal() {
@@ -67,6 +69,9 @@ void initGlobal() {
     switch_to_sta_semaphore = xSemaphoreCreateBinary();
     wifi_error_semaphore = xSemaphoreCreateBinary();
     coreiot_error_semaphore = xSemaphoreCreateBinary();
+    sensor_send_telemetry_semaphore = xSemaphoreCreateBinary();
+
+    gw_downlink_queue = xQueueCreate(10, sizeof(GwDownlinkMessage));
 
     LOG_INFO("GLOBAL", "Global RTOS objects initialized cleanly");
 }
@@ -124,6 +129,8 @@ bool addPairedNode(const char* mac, const char* name) {
                     strlcpy(paired_nodes[i].mac_address, mac, MAC_STR_LEN);
                     strlcpy(paired_nodes[i].node_name, name, 32);
                     paired_nodes[i].is_active = true;
+                    paired_nodes[i].is_online = true;
+                    paired_nodes[i].last_seen_millis = millis();
 
                     paired_nodes[i].current_config.read_interval_ms =
                         DEFAULT_READ_INTERVAL_MS;
@@ -164,6 +171,36 @@ bool removePairedNode(const char* mac) {
         xSemaphoreGive(node_list_mutex);
     }
     return success;
+}
+
+void updateNodeHeartbeat(const char* mac) {
+    if (xSemaphoreTake(node_list_mutex, portMAX_DELAY) == pdTRUE) {
+        int8_t idx = findNodeIndexByMac_Internal(mac);
+        if (idx != -1) {
+            paired_nodes[idx].last_seen_millis = millis();
+            paired_nodes[idx].is_online = true;
+        }
+        xSemaphoreGive(node_list_mutex);
+    }
+}
+
+void checkNodesOnlineStatus(uint32_t timeout_ms) {
+    uint32_t current_time = millis();
+    if (xSemaphoreTake(node_list_mutex, portMAX_DELAY) == pdTRUE) {
+        for (uint8_t i = 0; i < MAX_PAIRED_NODES; i++) {
+            if (paired_nodes[i].is_active && paired_nodes[i].is_online) {
+                // If the node hasn't been seen within the timeout, mark it
+                // offline
+                if ((current_time - paired_nodes[i].last_seen_millis) >
+                    timeout_ms) {
+                    paired_nodes[i].is_online = false;
+                    LOG_WARN("HEARTBEAT", "Node %s is OFFLINE (Timeout)",
+                             paired_nodes[i].mac_address);
+                }
+            }
+        }
+        xSemaphoreGive(node_list_mutex);
+    }
 }
 
 uint8_t getActiveNodeCount() {
