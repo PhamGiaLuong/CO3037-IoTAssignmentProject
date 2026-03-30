@@ -276,6 +276,25 @@
         padding: 0.5rem;
         border-radius: 6px;
       }
+      .node-card.offline {
+        opacity: 0.6;
+        filter: grayscale(80%);
+        border-color: var(--text-muted);
+        background: #f8fafc;
+      }
+      .node-card.offline .metric-val {
+        color: var(--text-muted) !important;
+      }
+      .badge {
+        font-size: 0.65rem;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      .badge-online { background: rgba(16, 185, 129, 0.15); color: var(--success-color); }
+      .badge-offline { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
 
       /* --- CONTROLS --- */
       .gateway-control {
@@ -1319,6 +1338,7 @@
               {
                 mac: "AA:BB:CC:DD:EE:11",
                 name: "Cold Room A1",
+                is_online: true,
                 temp: (2 + Math.random() * 2).toFixed(1),
                 hum: (85 + Math.random() * 5).toFixed(1),
                 prediction: "Normal",
@@ -1328,6 +1348,7 @@
               {
                 mac: "AA:BB:CC:DD:EE:22",
                 name: "Cold Room A2",
+                is_online: true,
                 temp: (8 + Math.random() * 2).toFixed(1),
                 hum: (70 + Math.random() * 5).toFixed(1),
                 prediction: "Anomaly",
@@ -1335,8 +1356,9 @@
                 config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
               },
               {
-                mac: "AA:BB:CC:DD:EE:22",
-                name: "Cold Room A2",
+                mac: "AA:BB:CC:DD:EE:33",
+                name: "Cold Room A3",
+                is_online: false,
                 temp: (8 + Math.random() * 2).toFixed(1),
                 hum: (70 + Math.random() * 5).toFixed(1),
                 prediction: "Anomaly",
@@ -1344,8 +1366,9 @@
                 config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
               },
               {
-                mac: "AA:BB:CC:DD:EE:22",
-                name: "Cold Room A2",
+                mac: "AA:BB:CC:DD:EE:44",
+                name: "Cold Room A4",
+                is_online: true,
                 temp: (8 + Math.random() * 2).toFixed(1),
                 hum: (70 + Math.random() * 5).toFixed(1),
                 prediction: "Anomaly",
@@ -1353,8 +1376,9 @@
                 config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
               },
               {
-                mac: "AA:BB:CC:DD:EE:22",
-                name: "Cold Room A2",
+                mac: "AA:BB:CC:DD:EE:55",
+                name: "Cold Room A5",
+                is_online: false,
                 temp: (8 + Math.random() * 2).toFixed(1),
                 hum: (70 + Math.random() * 5).toFixed(1),
                 prediction: "Anomaly",
@@ -1362,8 +1386,9 @@
                 config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
               },
               {
-                mac: "AA:BB:CC:DD:EE:22",
-                name: "Cold Room A2",
+                mac: "AA:BB:CC:DD:EE:66",
+                name: "Cold Room A6",
+                is_online: true,
                 temp: (8 + Math.random() * 2).toFixed(1),
                 hum: (70 + Math.random() * 5).toFixed(1),
                 prediction: "Anomaly",
@@ -1371,8 +1396,9 @@
                 config: { t_min: 0, t_max: 5, h_min: 80, h_max: 95 },
               },
               {
-                mac: "AA:BB:CC:DD:EE:22",
-                name: "Cold Room A2",
+                mac: "AA:BB:CC:DD:EE:77",
+                name: "Cold Room A7",
+                is_online: true,
                 temp: (8 + Math.random() * 2).toFixed(1),
                 hum: (70 + Math.random() * 5).toFixed(1),
                 prediction: "Anomaly",
@@ -1439,6 +1465,7 @@
             activeChart.update(history.temp, history.hum);
           }
 
+          const isOffline = (node.is_online === false);
           const isWarning =
             node.temp < node.config.t_min ||
             node.temp > node.config.t_max ||
@@ -1446,32 +1473,36 @@
             node.hum > node.config.h_max;
 
           const card = document.createElement("div");
-          card.className = `node-card ${isWarning ? "warning" : ""}`;
+          card.className = `node-card ${isWarning ? "warning" : ""} ${isOffline ? "offline" : ""}`;
           card.onclick = () => openChartModal(node);
+
+          const statusBadge = isOffline 
+                ? `<span class="badge badge-offline">OFFLINE</span>` 
+                : `<span class="badge badge-online">ONLINE</span>`;
 
           card.innerHTML = `
                     <div class="node-header">
                         <div>
-                            <div class="node-name">${node.name}</div>
+                            <div class="node-name">${node.name} ${statusBadge}</div>
                             <div class="node-mac">${node.mac}</div>
                         </div>
-                        <div style="text-align: right; font-size: 0.75rem; color: ${node.prediction === "Normal" ? "var(--success-color)" : "var(--danger-color)"}">
-                            <b>AI:</b> ${node.prediction}
+                        <div style="text-align: right; font-size: 0.75rem; color: ${isOffline ? "var(--text-muted)" : (node.prediction === "Normal" ? "var(--success-color)" : "var(--danger-color)")}">
+                            <b>AI:</b> ${isOffline ? "N/A" : node.prediction}
                         </div>
                     </div>
                     <div class="node-metrics">
                         <div class="metric temp">
-                            <div class="metric-val">${node.temp}°C</div>
+                            <div class="metric-val">${isOffline ? "--" : node.temp}°C</div>
                             <div class="metric-label">Lim: ${node.config.t_min}-${node.config.t_max}</div>
                         </div>
                         <div class="metric hum">
-                            <div class="metric-val">${node.hum}%</div>
+                            <div class="metric-val">${isOffline ? "--" : node.hum}%</div>
                             <div class="metric-label">Lim: ${node.config.h_min}-${node.config.h_max}</div>
                         </div>
                     </div>
                     <div class="node-footer">
-                        <span>DHT: <span style="color:${node.periph.dht === "OK" ? "var(--success-color)" : "var(--danger-color)"}">${node.periph.dht}</span></span>
-                        <span>LCD: <span style="color:${node.periph.lcd === "OK" ? "var(--success-color)" : "var(--danger-color)"}">${node.periph.lcd}</span></span>
+                        <span>DHT: <span style="color:${isOffline ? "var(--text-muted)" : (node.periph.dht === "OK" ? "var(--success-color)" : "var(--danger-color)")}">${isOffline ? "--" : node.periph.dht}</span></span>
+                        <span>LCD: <span style="color:${isOffline ? "var(--text-muted)" : (node.periph.lcd === "OK" ? "var(--success-color)" : "var(--danger-color)")}">${isOffline ? "--" : node.periph.lcd}</span></span>
                     </div>
                 `;
           container.appendChild(card);
