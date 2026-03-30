@@ -1,15 +1,22 @@
-#include "readSensorTask.h"
+#include "read_sensor.h"
+
+// Size buffer for filter
 #define FILTER_SIZE 5
+// Default address dht20
 #define DHT20_ADDRESS 0x38
 
+// Declaration variable for
+// filter
 static float temp_buffer[FILTER_SIZE] = {0};
 static float hum_buffer[FILTER_SIZE] = {0};
 static int buffer_index = 0;
 static bool is_buffer_full = false;
+// give lcd semaphore
 static float last_lcd_temp = 0.0;
 static float last_lcd_hum = 0.0;
 static uint16_t last_lcd_mode = 0;
 
+// Checking semaphore when temp - previous_temp = 0.5, hum - previous_hum = 1.0
 bool isDeltaChanged(float new_temp, float new_hum) {
     return abs(new_temp - last_lcd_temp) >= 0.5 ||
            abs(new_hum - last_lcd_hum) >= 1.0;
@@ -31,6 +38,7 @@ uint8_t calDht20CRC(uint8_t *data, uint8_t length) {
     return crc;
 }
 
+// Correct data
 bool readDht20(float *out_temp, float *out_hum) {
     // 1. Init sensor
     Wire.beginTransmission(DHT20_ADDRESS);
@@ -80,6 +88,7 @@ bool readDht20(float *out_temp, float *out_hum) {
     return true;
 }
 
+// Checking threshold and filter
 bool processSensorData(float temp, float hum, SensorData *out_data) {
     // 1. Validate data
     if (isnan(temp) || isnan(hum) || temp < 0 || hum < 0 || temp > 100 ||
@@ -116,6 +125,7 @@ bool processSensorData(float temp, float hum, SensorData *out_data) {
     return true;
 }
 
+// Read data from sensor
 SensorData readFromDHT20() {
     SensorData data;
     data.is_dht20_ok = false;
@@ -133,12 +143,14 @@ SensorData readFromDHT20() {
     }
     return data;
 }
+
 void readSensorTask(void *pvParameters) {
     LOG_INFO("SENSOR", "Sensor reading task started");
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     while (1) {
-        SystemConfig config = getSystemConfig();
+        SensorConfig config = getSensorConfig();
+        // Read data from sensor then assign to SensorData
         SensorData raw_data = readFromDHT20();
         float raw_temp = raw_data.current_temperature;
         float raw_hum = raw_data.current_humidity;
@@ -146,19 +158,21 @@ void readSensorTask(void *pvParameters) {
         bool lcd_ok = true;
 
         if (sensor_ok == false) {
-            if (!checkSystemErrorFlag(EVENT_SENSOR_ERROR)) {
-                setSystemErrorFlag(EVENT_SENSOR_ERROR);
-                xSemaphoreGive(sensor_error_semaphore);
+            if (!checkSensorErrorFlag(SENSOR_FLAG_DHT_ERR)) {
+                setSensorErrorFlag(SENSOR_FLAG_DHT_ERR);
+                xSemaphoreGive(sensor_led_sync_semaphore);
+                xSemaphoreGive(lcd_sync_semaphore);
                 LOG_WARN("SENSOR", "Error reading from sensor");
             }
         } else {
             LOG_INFO("SENSOR",
                      "Done read! Temperature: %.1f C | Humidity: %.1f %%",
                      raw_temp, raw_hum);
-            clearSystemErrorFlag(EVENT_SENSOR_ERROR);
+            clearSensorErrorFlag(SENSOR_FLAG_DHT_ERR);
             SensorData data = {raw_temp, raw_hum, sensor_ok, lcd_ok};
 
-            uint16_t current_mode = getActiveErrorFlags();
+            // Give semaphore for lcd
+            uint16_t current_mode = getSensorActiveErrorFlags();
             bool is_state_changed = (current_mode != last_lcd_mode);
             if (isDeltaChanged(raw_temp, raw_hum) || is_state_changed) {
                 last_lcd_temp = raw_temp;
@@ -170,42 +184,51 @@ void readSensorTask(void *pvParameters) {
 
             setSensorData(data);
 
+            // Set system_error_flag for temp and hum
             if (raw_temp > config.max_temp_threshold) {
-                if (!checkSystemErrorFlag(EVENT_TEMP_WARNING)) {
-                    setSystemErrorFlag(EVENT_TEMP_WARNING);
-                    xSemaphoreGive(temp_warning_semaphore);
+                if (temp_error != EVENT_TEMP_HIGH) {
+                    temp_error = EVENT_TEMP_HIGH;
+                    xSemaphoreGive(sensor_led_sync_semaphore);
+                    xSemaphoreGive(lcd_sync_semaphore);
                     LOG_WARN("SENSOR", "High Temp warning: %.2f C", raw_temp);
                 }
-            } else {
-                if (checkSystemErrorFlag(EVENT_TEMP_WARNING)) {
-                    clearSystemErrorFlag(EVENT_TEMP_WARNING);
-                    xSemaphoreGive(temp_warning_semaphore);
-                    LOG_INFO("SENSOR", "Temperature back to normal: %.2f C",
-                             raw_temp);
+            } else if (raw_temp < config.min_temp_threshold) {
+                if (temp_error != EVENT_TEMP_LOW) {
+                    temp_error = EVENT_TEMP_LOW;
+                    xSemaphoreGive(sensor_led_sync_semaphore);
+                    xSemaphoreGive(lcd_sync_semaphore);
+                    LOG_WARN("SENSOR", "Low Temp warning: %.2f %%", raw_temp);
                 }
+            } else {
+                temp_error = EVENT_TEMP_NORMAL;
+                xSemaphoreGive(sensor_led_sync_semaphore);
+                xSemaphoreGive(lcd_sync_semaphore);
+                LOG_INFO("SENSOR", "Temperature back to normal: %.2f C",
+                         raw_temp);
             }
 
             if (raw_hum > config.max_humidity_threshold) {
-                if (!checkSystemErrorFlag(EVENT_HUM_HIGH)) {
-                    setSystemErrorFlag(EVENT_HUM_HIGH);
-                    clearSystemErrorFlag(EVENT_HUM_LOW);
-                    xSemaphoreGive(hum_warning_semaphore);
+                if (hum_error != EVENT_HUM_HIGH) {
+                    hum_error = EVENT_HUM_HIGH;
+                    xSemaphoreGive(sensor_led_sync_semaphore);
+                    xSemaphoreGive(lcd_sync_semaphore);
+                    xSemaphoreGive(neo_pixel_sync_semaphore);
                     LOG_WARN("SENSOR", "High Hum warning: %.2f %%", raw_hum);
                 }
             } else if (raw_hum < config.min_humidity_threshold) {
-                if (!checkSystemErrorFlag(EVENT_HUM_LOW)) {
-                    setSystemErrorFlag(EVENT_HUM_LOW);
-                    clearSystemErrorFlag(EVENT_HUM_HIGH);
-                    xSemaphoreGive(hum_warning_semaphore);
+                if (hum_error != EVENT_HUM_LOW) {
+                    temp_error = EVENT_HUM_LOW;
                     LOG_WARN("SENSOR", "Low Hum warning: %.2f %%", raw_hum);
+                    xSemaphoreGive(sensor_led_sync_semaphore);
+                    xSemaphoreGive(lcd_sync_semaphore);
+                    xSemaphoreGive(neo_pixel_sync_semaphore);
                 }
             } else {
-                if (checkSystemErrorFlag(EVENT_HUM_HIGH | EVENT_HUM_LOW)) {
-                    clearSystemErrorFlag(EVENT_HUM_HIGH | EVENT_HUM_LOW);
-                    xSemaphoreGive(hum_warning_semaphore);
-                    LOG_INFO("SENSOR", "Humidity back to normal: %.2f %%",
-                             raw_hum);
-                }
+                hum_error == EVENT_HUM_NORMAL;
+                xSemaphoreGive(sensor_led_sync_semaphore);
+                xSemaphoreGive(lcd_sync_semaphore);
+                xSemaphoreGive(neo_pixel_sync_semaphore);
+                LOG_INFO("SENSOR", "Humidity back to normal: %.2f %%", raw_hum);
             }
         }
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(config.read_interval_ms));

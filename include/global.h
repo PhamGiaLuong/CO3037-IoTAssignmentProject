@@ -12,14 +12,11 @@
 
 // MACROS & CONSTANTS
 #define DEFAULT_READ_INTERVAL_MS 2000
-#define DEFAULT_TEMP_THRESHOLD 35.0
-#define DEFAULT_HUM_THRESHOLD 80.0
-#define DEFAULT_MIN_HUM_THRESHOLD 40.0
 #define DEFAULT_SEND_INTERVAL_MS 5000
+#define DEFAULT_MAX_HUM_THRESHOLD 80.0
+#define DEFAULT_MIN_HUM_THRESHOLD 40.0
 #define DEFAULT_MAX_TEMP_THRESHOLD 35.0
 #define DEFAULT_MIN_TEMP_THRESHOLD 20.0
-#define DEFAULT_MAX_HUM_THRESHOLD 80.0
-#define DEFAULT_MIN_HUM_THRESHOLD 30.0
 #define DEFAULT_CORE_IOT_PORT 1883
 #define DEFAULT_CORE_IOT_SERVER "app.coreiot.io"
 #define DEFAULT_AP_SSID_VALUE "ESP32_IoT_AP"
@@ -29,8 +26,8 @@
 #define AP_PASS_KEY "ap_pass"
 #define WIFI_SSID_KEY "wifi_ssid"
 #define WIFI_PASS_KEY "wifi_pass"
-#define CORE_IOT_TOKEN_KEY "c_iot_token"
-#define CORE_IOT_SERVER_KEY "c_iot_server"
+#define CORE_IOT_TOKEN_KEY "core_iot_01"
+#define CORE_IOT_SERVER_KEY "app.coreiot.io"
 #define CORE_IOT_PORT_KEY "c_iot_port"
 #define READ_INTERVAL_KEY "interval"
 #define SEND_INTERVAL_KEY "send_int"
@@ -137,7 +134,6 @@ struct GwDownlinkMessage {
 extern SemaphoreHandle_t gw_led_sync_semaphore;
 extern SemaphoreHandle_t wifi_error_semaphore;
 extern SemaphoreHandle_t coreiot_error_semaphore;
-extern SemaphoreHandle_t lcd_sync_semaphore;
 extern SemaphoreHandle_t switch_to_ap_semaphore;
 extern SemaphoreHandle_t switch_to_sta_semaphore;
 
