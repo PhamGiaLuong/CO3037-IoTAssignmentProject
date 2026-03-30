@@ -10,30 +10,17 @@ const char* wifi_password = "12346789";
 
 String buildJsonPlayload() {
     // SensorData data = getSensorData();
-    float mock_temp = random(20, 85) / 10.0;
+    float mock_temp = random(100, 400) / 10.0;
 
-    float mock_hum = random(500, 900) / 10.0;
+    float mock_hum = random(200, 900) / 10.0;
     SensorData data = {mock_temp, mock_hum, true, true};
-    uint32_t flags = getSensorActiveErrorFlags();
+    // uint32_t flags = getSensorActiveErrorFlags();
     StaticJsonDocument<256> doc;
 
     if (data.is_dht20_ok) {
         doc["temperature"] = serialized(String(data.current_temperature, 1));
         doc["humidity"] = serialized(String(data.current_humidity, 1));
-    } else {
-        doc["temperature"] = nullptr;
-        doc["humidity"] = nullptr;
     }
-
-    // if (flags & SENSOR_FLAG_DHT_ERR) {
-    //     doc["status"] = "SENSOR_FAULT";
-    // } else if (flags & (EVENT_TEMP_HIGH | EVENT_TEMP_LOW)) {
-    //     doc["status"] = "CRITICAL_TEMP";
-    // } else if (flags & (EVENT_HUM_HIGH | EVENT_HUM_LOW)) {
-    //     doc["status"] = "HUMIDITY_WARN";
-    // } else {
-    //     doc["status"] = "NORMAL";
-    // }
 
     String pay_load;
     serializeJson(doc, pay_load);
