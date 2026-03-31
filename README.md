@@ -18,7 +18,7 @@
   - [5.1. Nạp Firmware cho Sensor Node](#51-nạp-firmware-cho-sensor-node)
   - [5.2. Nạp Firmware và Dữ liệu Web cho Gateway Node](#52-nạp-firmware-và-dữ-liệu-web-cho-gateway-node)
 - [6. Quy trình Kiểm thử (Testing Workflow)](#6-quy-trình-kiểm-thử-testing-workflow)
-- [7. Thông tin nhóm](#6-thông-tin-nhóm)
+- [7. Thông tin nhóm](#7-thông-tin-nhóm)
 ---
 
 ## 1. Giới thiệu tổng quan (Project Overview)
