@@ -16,6 +16,8 @@
 #include "web_server.h"
 #endif
 
+#ifndef PIO_UNIT_TESTING
+
 void setup() {
     Serial.begin(115200);
 
@@ -52,3 +54,5 @@ void setup() {
 }
 
 void loop() {}
+
+#endif
