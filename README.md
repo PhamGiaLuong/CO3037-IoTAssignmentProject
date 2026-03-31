@@ -17,7 +17,8 @@
 - [5. Hướng dẫn Biên dịch và Nạp Code (Build & Upload Guide)](#5-hướng-dẫn-biên-dịch-và-nạp-code-build--upload-guide)
   - [5.1. Nạp Firmware cho Sensor Node](#51-nạp-firmware-cho-sensor-node)
   - [5.2. Nạp Firmware và Dữ liệu Web cho Gateway Node](#52-nạp-firmware-và-dữ-liệu-web-cho-gateway-node)
-- [6. Thông tin nhóm](#6-thông-tin-nhóm)
+- [6. Quy trình Kiểm thử (Testing Workflow)](#6-quy-trình-kiểm-thử-testing-workflow)
+- [7. Thông tin nhóm](#6-thông-tin-nhóm)
 ---
 
 ## 1. Giới thiệu tổng quan (Project Overview)
@@ -86,6 +87,7 @@ Dự án được xây dựng trên **PlatformIO**, quản lý cả hai luồng 
 ├── lib/                   # Kho lưu trữ các thư viện bên NGOÀI (bản Local)
 ├── src/                   # Source code chính (.cpp)
 │   └── main.cpp           # Entry point (Điều hướng Task dựa trên Environment)
+├── test/                  # Các bài test: Unit test và Integration test
 ├── tinyml/                # Source thu thập/đánh nhãn dữ liệu, huấn luyện và export AI model
 ├── .clang-format          # File quy tắc định dạng code (Google Style)
 ├── .gitignore             # Cấu hình file/folder cần bỏ qua trong git
@@ -150,10 +152,11 @@ Dự án tuân thủ mô hình tách biệt giữa khai báo (Interface) và tri
 
 Sử dụng format: `[Loại] - Nội dung thay đổi ngắn gọn`, ngôn ngữ tiếng Anh.
 
-* `feat`: Thêm tính năng mới.
-* `fix`: Sửa lỗi.
-* `docs`: Cập nhật tài liệu, comment.
-* `refactor`: Tối ưu cấu trúc code (không thay đổi chức năng).
+* `Feat`: Thêm tính năng mới.
+* `Test`: Thêm bài test mới.
+* `Fix`: Sửa lỗi, fig bug sau test.
+* `Docs`: Cập nhật tài liệu, comment.
+* `Refactor`: Tối ưu cấu trúc code (không thay đổi chức năng).
 * _Ví dụ:_ `feat: Add NeoPixel control logic` hoặc `fix: Resolve semaphore deadlock in Task 1`
 
 ### 3.2. Quy tắc Code (Coding Standards)
@@ -214,7 +217,7 @@ Khuyến nghị sử dụng Anaconda để quản lý môi trường ảo, trán
 ### Bước 2: Thu thập dữ liệu (Data Collection)
 Đảm bảo ESP32 đang được cắm vào máy tính và liên tục in ra Serial định dạng `Temp,Hum\n` (ví dụ: `5.5,65.2`). Sử dụng script `data_collector.py` để đọc từ cổng COM và tự động lưu vào file `sensor_data.csv`.
 
-Chạy các lệnh sau tương ứng với từng kịch bản bạn muốn thu thập (thay `COM3` bằng cổng thực tế):
+Chạy các lệnh sau tương ứng với từng kịch bản (thay `COM3` bằng cổng thực tế):
 
 * **Thu thập dữ liệu Bình thường (Label 0):**
   ```bash
@@ -258,7 +261,7 @@ Gateway Node chịu trách nhiệm phát Wi-Fi (AP Mode), host trang Web Dashboa
 
 1. Cắm cáp kết nối ESP32 (Gateway Node) vào máy tính.
 2. Đổi Environment sang **`env:gateway_node`** ở thanh trạng thái bên dưới.
-3. **Quan trọng (Nạp Filesystem):** Trước khi nạp code C++, bạn phải nạp giao diện Web tĩnh (HTML/CSS/JS) vào phân vùng LittleFS của ESP32.
+3. **Quan trọng (Nạp Filesystem):** Trước khi nạp code C++, phải nạp giao diện Web tĩnh (HTML/CSS/JS) vào phân vùng LittleFS của ESP32.
    * Nhấp vào biểu tượng con kiến (PlatformIO Logo) ở thanh công cụ bên trái VS Code.
    * Dưới mục `env:gateway_node` -> Mở rộng mục `Platform`.
    * Nhấp vào tác vụ **`Build Filesystem Image`**, sau khi hoàn tất, nhấp tiếp **`Upload Filesystem Image`**.
@@ -266,6 +269,63 @@ Gateway Node chịu trách nhiệm phát Wi-Fi (AP Mode), host trang Web Dashboa
 
 ---
 
-## 6. Thông tin nhóm
+## 6. Quy trình Kiểm thử (Testing Workflow)
+Để đảm bảo chất lượng hệ thống và dễ dàng theo dõi tiến độ, nhóm áp dụng quy trình kiểm thử kết hợp giữa việc thiết kế test case (Manual Documenting) và chạy test tự động (Automated PIO Testing) bằng framework Unity.
+
+Dự án sử dụng mô hình **Test Runner Pattern**, trong đó mỗi Node sẽ có một file `test_main.cpp` duy nhất đóng vai trò điều phối các bài test.
+
+### Bước 1: Định nghĩa Test Case (Define Test Cases)
+Trước khi viết bất kỳ dòng code test nào **phải** định nghĩa kịch bản test vào sheet `Testing`.
+* **Các trường thông tin bắt buộc cần điền trước:**
+  * `Type`: Unit / Integration / System
+  * `Node`: Sensor / Gateway
+  * `ID`: Mã test case (Ví dụ: `US-01`, `UG-01`, `IS-01`...)
+  * `Test name`: Tên hàm test (bắt buộc bắt đầu bằng `test_`, ví dụ: `test_set_and_clear_sensor_error_flag`)
+  * `Module`: Tên module đang test (Ví dụ: Global, Config, NodeManage...)
+  * `Input`: Mô tả thao tác/Dữ liệu đầu vào
+  * `Output (Expected)`: Kết quả mong đợi
+
+### Bước 2: Hiện thực Test Code (Implement Test Code)
+Sau khi thiết kế kịch bản thì tiến hành code bài test. Quá trình này gồm 2 thao tác bắt buộc:
+
+**2.1. Viết logic bài test (Không chứa setup/loop)**
+Viết hàm test sử dụng các macro của Unity (`TEST_ASSERT_TRUE()`, `TEST_ASSERT_EQUAL()`...) tại file tương ứng:
+* **Sensor Node:**
+  * Unit Test: Viết tại `test/test_sensor/test_sensor_unit.cpp`
+  * Integration Test: Viết tại `test/test_sensor/test_sensor_integration.cpp`
+* **Gateway Node:**
+  * Unit Test: Viết tại `test/test_gateway/test_gateway_unit.cpp`
+  * Integration Test: Viết tại `test/test_gateway/test_gateway_integration.cpp`
+
+*Lưu ý: Tuyệt đối KHÔNG viết các hàm `setup()`, `loop()`, `setUp()`, `tearDown()` vào các file này để tránh lỗi trùng lặp (multiple definition).*
+
+**2.2. Khai báo vào Test Runner (`test_main.cpp`)**
+Mở file `test_main.cpp` của Node tương ứng (`test/test_sensor/test_main.cpp` hoặc `test/test_gateway/test_main.cpp`), thực hiện 2 việc:
+1. Dùng từ khóa `extern` để khai báo tên hàm test ở đầu file.
+2. Gọi hàm `RUN_TEST(tên_hàm_test);` bên trong block `setup()` của file `test_main.cpp`.
+
+### Bước 3: Biên dịch và Chạy Test (Build & Run Tests)
+*Đảm bảo đã cắm đúng mạch ESP32 tương ứng vào máy tính trước khi chạy.*
+
+**Chạy test cho Sensor Node:**
+Chỉ các file trong thư mục `test/test_sensor/` mới được biên dịch. Mở Terminal và gõ:
+```bash
+pio test -e sensor_node
+```
+
+**Chạy test cho Gateway Node:**
+Chỉ các file trong thư mục `test/test_gateway/` mới được biên dịch. Mở Terminal và gõ:
+```bash
+pio test -e gateway_node
+```
+
+### Bước 4: Cập nhật Kết quả (Update Test Results)
+Sau khi Terminal báo `PASSED` hoặc `FAILED` (màu xanh/đỏ):
+* Quay lại sheet `Testing`.
+* Cập nhật các cột: `Result` (Pass/Fail), `Tester` (Tên người chạy test), `Testdate` (Ngày chạy), và `Ghi chú` (Nếu có lỗi hoặc điều kiện bất thường để team cùng review).
+
+---
+
+## 7. Thông tin nhóm
 * **Thành viên 1:** Phạm Gia Lương - 2211960 - luong.pham2211960@hcmut.edu.vn
 * **Thành viên 2:** Lê Quang Minh - 2212047 - minh.lelight@hcmut.edu.vn
