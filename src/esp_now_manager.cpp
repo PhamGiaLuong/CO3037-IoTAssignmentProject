@@ -1,59 +1,5 @@
 #include "esp_now_manager.h"
 
-// PROTOCOL DATA STRUCTURES
-// Use packed structures to prevent memory padding issues over ESP-NOW
-#pragma pack(push, 1)
-
-struct MsgHeader {
-    uint8_t msg_type;
-    uint8_t seq_num;
-};
-
-struct MsgTelemetry {
-    MsgHeader header;
-    float temperature;
-    float humidity;
-    uint8_t ml_prediction;
-    float ml_confidence;
-    uint32_t error_flags;
-};
-
-struct MsgSyncConfig {
-    MsgHeader header;
-    float min_temp;
-    float max_temp;
-    float min_hum;
-    float max_hum;
-    uint32_t reading_interval;
-};
-
-struct MsgPairing {
-    MsgHeader header;
-    uint8_t pair_state;  // 0x01: Pair, 0x02: Unpair
-    char room_name[32];
-};
-
-struct MsgControlCmd {
-    MsgHeader header;
-    uint8_t cmd_code;
-    uint32_t cmd_param;
-};
-
-struct MsgAckResponse {
-    MsgHeader header;
-    uint8_t msg_type_replied;
-    uint8_t status_code;  // 0: Success, 1: Fail
-};
-
-#pragma pack(pop)
-
-// INTERNAL TYPES & GLOBALS
-struct RxPacket {
-    uint8_t mac_addr[6];
-    uint8_t data[250];
-    int len;
-};
-
 static QueueHandle_t rx_queue = NULL;
 static QueueHandle_t tx_status_queue = NULL;
 
@@ -427,3 +373,32 @@ void espNowGatewayTask(void* pvParameters) {
         }
     }
 }
+
+#ifdef PIO_UNIT_TESTING
+void testHook_simulateEspNowRx(const uint8_t* mac, const uint8_t* data,
+                               int len) {
+    RxPacket packet;
+    memcpy(packet.mac_addr, mac, 6);
+    memcpy(packet.data, data, len);
+    packet.len = len;
+    xQueueSend(rx_queue, &packet, 0);
+}
+
+void testHook_macStrToBytes(const char* mac_str, uint8_t* mac_bytes) {
+    macStrToBytes(mac_str, mac_bytes);
+}
+
+void testHook_bytesToMacStr(const uint8_t* mac_bytes, char* mac_str) {
+    bytesToMacStr(mac_bytes, mac_str);
+}
+
+uint8_t testHook_mapPredictionToId(const char* pred) {
+    return mapPredictionToId(pred);
+}
+
+void testHook_resetRxQueue() {
+    if (rx_queue != NULL) {
+        xQueueReset(rx_queue);
+    }
+}
+#endif

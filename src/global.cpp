@@ -528,3 +528,16 @@ void saveConfigToFlash() {
 
     preferences.end();
 }
+
+#ifdef PIO_UNIT_TESTING
+void testHook_setNodeLastSeenMillis(const char* mac_str,
+                                    uint32_t simulated_millis) {
+    for (uint8_t i = 0; i < MAX_PAIRED_NODES; i++) {
+        if (paired_nodes[i].is_active &&
+            strcasecmp(paired_nodes[i].mac_address, mac_str) == 0) {
+            paired_nodes[i].last_seen_millis = simulated_millis;
+            break;
+        }
+    }
+}
+#endif
