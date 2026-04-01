@@ -7,8 +7,6 @@ PubSubClient mqtt_client(wifi_client);
 
 String buildJsonPlayload() {
     SensorData data = getSensorData();
-
-    uint32_t flags = getSensorActiveErrorFlags();
     StaticJsonDocument<256> doc;
 
     if (data.is_dht20_ok) {
