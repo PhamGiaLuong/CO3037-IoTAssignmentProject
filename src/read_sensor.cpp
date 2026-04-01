@@ -199,7 +199,7 @@ void readSensorTask(void *pvParameters) {
                     xSemaphoreGive(lcd_sync_semaphore);
                     LOG_WARN("SENSOR", "Low Temp warning: %.2f %%", raw_temp);
                 }
-            } else {
+            } else if (temp_error != EVENT_TEMP_NORMAL) {
                 temp_error = EVENT_TEMP_NORMAL;
                 xSemaphoreGive(sensor_led_sync_semaphore);
                 xSemaphoreGive(lcd_sync_semaphore);
@@ -223,7 +223,7 @@ void readSensorTask(void *pvParameters) {
                     xSemaphoreGive(lcd_sync_semaphore);
                     xSemaphoreGive(neo_pixel_sync_semaphore);
                 }
-            } else {
+            } else if (hum_error != EVENT_HUM_NORMAL) {
                 hum_error == EVENT_HUM_NORMAL;
                 xSemaphoreGive(sensor_led_sync_semaphore);
                 xSemaphoreGive(lcd_sync_semaphore);
