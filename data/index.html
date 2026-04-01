@@ -1309,11 +1309,11 @@
           .classList.add("active");
       }
 
-      function initApp() {
+      async function initApp() {
         switchView("dashboard");
+        await fetchDeviceStates();
+        await fetchSettings();
         startPolling();
-        fetchDeviceStates();
-        fetchSettings();
       }
 
       // --- DASHBOARD POLLING ---

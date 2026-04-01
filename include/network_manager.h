@@ -2,6 +2,7 @@
 #define __NETWORK_MANAGER_H__
 
 #include <DNSServer.h>
+#include <esp_wifi.h>
 
 #include "global.h"
 

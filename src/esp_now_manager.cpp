@@ -54,7 +54,7 @@ static void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData,
 
 // INITIALIZATION
 void initEspNow() {
-    WiFi.mode(WIFI_STA);
+    WiFi.mode(WIFI_AP_STA);
     WiFi.disconnect();
 
     if (esp_now_init() != ESP_OK) {
@@ -296,8 +296,20 @@ void espNowGatewayTask(void* pvParameters) {
             if (downlink_cmd.type == DOWNLINK_PAIRING) {
                 MsgPairing pkt = {{MSG_PAIRING, GET_SEQ_NUM()}, 0x01, ""};
                 strlcpy(pkt.room_name, downlink_cmd.room_name, 32);
+
+                esp_now_peer_info_t peerInfo = {};
+                memcpy(peerInfo.peer_addr, target_mac, 6);
+                peerInfo.channel = 0;  // 0 = Current Home Channel
+                peerInfo.encrypt = false;
+
+                if (esp_now_is_peer_exist(target_mac)) {
+                    esp_now_del_peer(target_mac);
+                }
+                esp_now_add_peer(&peerInfo);
+
                 esp_now_send(target_mac, (uint8_t*)&pkt, sizeof(pkt));
-                LOG_INFO("ESPNOW_GW", "Sent PAIRING Request to %s",
+                LOG_INFO("ESPNOW_GW",
+                         "Sent PAIRING Request to %s on current Home Channel",
                          downlink_cmd.target_mac);
             } else if (downlink_cmd.type == DOWNLINK_UNPAIR) {
                 MsgPairing pkt = {{MSG_PAIRING, GET_SEQ_NUM()}, 0x02, ""};

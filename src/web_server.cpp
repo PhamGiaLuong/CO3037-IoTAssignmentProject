@@ -24,7 +24,7 @@ void webServerTask(void* pvParameters) {
         LOG_INFO("WEBSERVER", "LittleFS mounted successfully.");
     }
 
-    initMockData();
+    // initMockData();
     // Register all routes and API endpoints
     setupStaticFiles();
     setupDashboardApi();
@@ -39,7 +39,7 @@ void webServerTask(void* pvParameters) {
 
     while (1) {
         server.handleClient();
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(3));
     }
 }
 
