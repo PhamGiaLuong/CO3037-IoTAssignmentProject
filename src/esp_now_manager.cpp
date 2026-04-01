@@ -54,9 +54,19 @@ static void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData,
 
 // INITIALIZATION
 void initEspNow() {
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+
     if (esp_now_init() != ESP_OK) {
         LOG_ERR("ESPNOW", "Error initializing ESP-NOW");
+        // setGatewayErrorFlag(GW_FLAG_ESPNOW_ERR);
+#ifdef GATEWAY_NODE
         setGatewayErrorFlag(GW_FLAG_ESPNOW_ERR);
+#endif
+
+#ifdef SENSOR_NODE
+        setSensorErrorFlag(SENSOR_FLAG_ESPNOW_DISCONN);
+#endif
         return;
     }
 

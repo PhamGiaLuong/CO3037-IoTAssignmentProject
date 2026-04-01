@@ -433,6 +433,7 @@ void setControlState(const ControlState& state) {
 void loadConfigFromFlash() {
     bool isNamespaceExist = preferences.begin(PREFERENCES_NAMESPACE, true);
 
+#ifdef GATEWAY_NODE
     // Load Gateway Config
     if (xSemaphoreTake(gw_config_mutex, portMAX_DELAY) == pdTRUE) {
         size_t len_ap_ssid = preferences.getString(
@@ -473,7 +474,9 @@ void loadConfigFromFlash() {
 
         xSemaphoreGive(gw_config_mutex);
     }
+#endif
 
+#ifdef SENSOR_NODE
     // Load Sensor Config
     if (xSemaphoreTake(sensor_config_mutex, portMAX_DELAY) == pdTRUE) {
         sensor_config.read_interval_ms =
@@ -489,7 +492,7 @@ void loadConfigFromFlash() {
 
         xSemaphoreGive(sensor_config_mutex);
     }
-
+#endif
     preferences.end();
 
     if (!isNamespaceExist) {
@@ -501,7 +504,7 @@ void loadConfigFromFlash() {
 
 void saveConfigToFlash() {
     preferences.begin(PREFERENCES_NAMESPACE, false);
-
+#ifdef GATEWAY_NODE
     if (xSemaphoreTake(gw_config_mutex, portMAX_DELAY) == pdTRUE) {
         preferences.putString(AP_SSID_KEY, gateway_config.ap_ssid);
         preferences.putString(AP_PASS_KEY, gateway_config.ap_password);
@@ -517,6 +520,9 @@ void saveConfigToFlash() {
         xSemaphoreGive(gw_config_mutex);
     }
 
+#endif
+
+#ifdef SENSOR_NODE
     if (xSemaphoreTake(sensor_config_mutex, portMAX_DELAY) == pdTRUE) {
         preferences.putShort(READ_INTERVAL_KEY, sensor_config.read_interval_ms);
         preferences.putFloat(MAX_TEMP_KEY, sensor_config.max_temp_threshold);
@@ -525,7 +531,7 @@ void saveConfigToFlash() {
         preferences.putFloat(MIN_HUM_KEY, sensor_config.min_humidity_threshold);
         xSemaphoreGive(sensor_config_mutex);
     }
-
+#endif
     preferences.end();
 }
 
