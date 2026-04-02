@@ -1780,11 +1780,19 @@
           btnText.innerText = "Saving...";
           loader.style.display = "inline-block";
 
+          const numericFields = [
+              "core_iot_port", "send_interval_ms", "read_interval_ms", 
+              "min_temp_threshold", "max_temp_threshold", 
+              "min_humidity_threshold", "max_humidity_threshold"
+          ];
+
           const formData = new FormData(form);
           const data = Object.fromEntries(formData.entries());
+
           for (let key in data) {
-            if (!isNaN(data[key]) && data[key].trim() !== "")
-              data[key] = Number(data[key]);
+              if (numericFields.includes(key) && !isNaN(data[key]) && data[key].trim() !== "") {
+                  data[key] = Number(data[key]);
+              }
           }
 
           try {
