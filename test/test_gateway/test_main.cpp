@@ -41,7 +41,7 @@ extern void test_web_to_espnow_downlink_queue(void);
 extern void test_heartbeat_offline_timeout(void);
 extern void test_web_api_mode_switch_semaphore(void);
 extern void test_flash_save_load_gw_config(void);
-extern void test_flash_save_load_sensor_config(void);
+extern void test_flash_save_load_gw_numeric_config(void);
 extern void test_gw_error_triggers_led_semaphore(void);
 extern void test_web_api_pushes_downlink_queue(void);
 extern void test_web_api_pairing_downlink(void);
@@ -129,7 +129,7 @@ void setup() {
     RUN_TEST(test_heartbeat_offline_timeout);
     RUN_TEST(test_web_api_mode_switch_semaphore);
     RUN_TEST(test_flash_save_load_gw_config);
-    RUN_TEST(test_flash_save_load_sensor_config);
+    RUN_TEST(test_flash_save_load_gw_numeric_config);
     RUN_TEST(test_gw_error_triggers_led_semaphore);
     RUN_TEST(test_web_api_pushes_downlink_queue);
     RUN_TEST(test_web_api_pairing_downlink);

@@ -67,14 +67,22 @@ void test_flash_save_load_gw_config(void) {
 }
 
 // TC: IG-05
-void test_flash_save_load_sensor_config(void) {
-    SensorConfig cfg = {2000, 45.0, 10.0, 80.0, 40.0};
-    setSensorConfig(cfg);
+void test_flash_save_load_gw_numeric_config(void) {
+    GatewayConfig cfg = {0};
+    cfg.core_iot_port = 8883;
+    cfg.send_interval_ms = 15000;
+    setGatewayConfig(cfg);
+
     saveConfigToFlash();
-    SensorConfig corrupt = {0};
-    setSensorConfig(corrupt);
+
+    GatewayConfig corrupt = {0};
+    setGatewayConfig(corrupt);
+
     loadConfigFromFlash();
-    TEST_ASSERT_EQUAL_FLOAT(45.0, getSensorConfig().max_temp_threshold);
+
+    GatewayConfig retrieved = getGatewayConfig();
+    TEST_ASSERT_EQUAL_INT16(8883, retrieved.core_iot_port);
+    TEST_ASSERT_EQUAL_INT16(15000, retrieved.send_interval_ms);
 }
 
 // TC: IG-06
@@ -260,13 +268,19 @@ void test_downlink_queue_overflow(void) {
 
 // TC: IG-20
 void test_flash_first_boot_creation(void) {
-    nvs_flash_erase();  // Delete NVS to simulate first boot
-    nvs_flash_init();   // Re-init to create empty NVS namespace
+    nvs_flash_erase();
+    nvs_flash_init();
+
+    GatewayConfig corrupt = {0};
+    setGatewayConfig(corrupt);
 
     loadConfigFromFlash();
 
-    // Expect default config values to be set
-    TEST_ASSERT_EQUAL_INT16(2000, getSensorConfig().read_interval_ms);
+    GatewayConfig retrieved = getGatewayConfig();
+    TEST_ASSERT_EQUAL_INT16(DEFAULT_CORE_IOT_PORT, retrieved.core_iot_port);
+    TEST_ASSERT_EQUAL_INT16(DEFAULT_SEND_INTERVAL_MS,
+                            retrieved.send_interval_ms);
+    TEST_ASSERT_EQUAL_STRING(DEFAULT_AP_SSID_VALUE, retrieved.ap_ssid);
 }
 
 // TC: IG-21
