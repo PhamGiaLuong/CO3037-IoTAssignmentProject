@@ -18,14 +18,15 @@ typedef enum {
 static NetworkState current_state = STATE_INIT;
 
 void startStaMode(char* ssid = nullptr, char* password = nullptr) {
-    WiFi.mode(WIFI_STA);
+    WiFi.mode(WIFI_AP_STA);
     WiFi.begin(ssid, password);
     LOG_INFO("NETWORK", "Starting STA Mode. Connecting to %s", ssid);
 }
 
 void startApMode() {
     GatewayConfig config = getGatewayConfig();
-    WiFi.mode(WIFI_AP);
+    WiFi.mode(WIFI_AP_STA);
+    esp_wifi_set_ps(WIFI_PS_NONE);
     WiFi.softAP(config.ap_ssid, config.ap_password);
 
     // Start DNS Server for Captive Portal (Auto-redirect)
@@ -71,7 +72,7 @@ void networkTask(void* pvParameters) {
                 // Check if WiFi config is saved (Length > 0)
                 if (strlen(config.wifi_ssid) > 0) {
                     current_state = STATE_STA_CONNECTING;
-                    startStaMode();
+                    startStaMode(config.wifi_ssid, config.wifi_password);
                     start_connect_time = millis();
                 } else {
                     current_state = STATE_AP_MODE;

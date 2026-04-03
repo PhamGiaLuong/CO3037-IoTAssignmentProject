@@ -24,7 +24,7 @@ void webServerTask(void* pvParameters) {
         LOG_INFO("WEBSERVER", "LittleFS mounted successfully.");
     }
 
-    initMockData();
+    // initMockData();
     // Register all routes and API endpoints
     setupStaticFiles();
     setupDashboardApi();
@@ -39,7 +39,7 @@ void webServerTask(void* pvParameters) {
 
     while (1) {
         server.handleClient();
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(3));
     }
 }
 
@@ -239,11 +239,11 @@ static void setupSettingsApi() {
 
         GatewayConfig config = getGatewayConfig();
         if (doc.containsKey(JSON_WIFI_SSID))
-            strlcpy(config.wifi_ssid, doc[JSON_WIFI_SSID].as<const char*>(),
+            strlcpy(config.wifi_ssid, doc[JSON_WIFI_SSID].as<String>().c_str(),
                     MAX_SSID_LEN);
         if (doc.containsKey(JSON_WIFI_PASS))
-            strlcpy(config.wifi_password, doc[JSON_WIFI_PASS].as<const char*>(),
-                    MAX_PASS_LEN);
+            strlcpy(config.wifi_password,
+                    doc[JSON_WIFI_PASS].as<String>().c_str(), MAX_PASS_LEN);
 
         setGatewayConfig(config);
         saveConfigToFlash();
@@ -259,11 +259,11 @@ static void setupSettingsApi() {
 
         GatewayConfig config = getGatewayConfig();
         if (doc.containsKey(JSON_SERVER))
-            strlcpy(config.core_iot_server, doc[JSON_SERVER].as<const char*>(),
-                    MAX_SERVER_LEN);
+            strlcpy(config.core_iot_server,
+                    doc[JSON_SERVER].as<String>().c_str(), MAX_SERVER_LEN);
         if (doc.containsKey(JSON_PORT)) config.core_iot_port = doc[JSON_PORT];
         if (doc.containsKey(JSON_TOKEN))
-            strlcpy(config.core_iot_token, doc[JSON_TOKEN].as<const char*>(),
+            strlcpy(config.core_iot_token, doc[JSON_TOKEN].as<String>().c_str(),
                     MAX_TOKEN_LEN);
         if (doc.containsKey(JSON_SEND_INTERVAL))
             config.send_interval_ms = doc[JSON_SEND_INTERVAL];
