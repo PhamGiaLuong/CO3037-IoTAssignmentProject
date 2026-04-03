@@ -305,6 +305,8 @@ void setSensorErrorFlag(uint16_t flag) {
             if (sensor_led_sync_semaphore != NULL)
                 xSemaphoreGive(sensor_led_sync_semaphore);
             if (lcd_sync_semaphore != NULL) xSemaphoreGive(lcd_sync_semaphore);
+            if (neo_pixel_sync_semaphore != NULL)
+                xSemaphoreGive(neo_pixel_sync_semaphore);
         }
         xSemaphoreGive(sensor_state_mutex);
     }
@@ -317,6 +319,8 @@ void clearSensorErrorFlag(uint16_t flag) {
             if (sensor_led_sync_semaphore != NULL)
                 xSemaphoreGive(sensor_led_sync_semaphore);
             if (lcd_sync_semaphore != NULL) xSemaphoreGive(lcd_sync_semaphore);
+            if (neo_pixel_sync_semaphore != NULL)
+                xSemaphoreGive(neo_pixel_sync_semaphore);
         }
         xSemaphoreGive(sensor_state_mutex);
     }

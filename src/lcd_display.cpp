@@ -124,8 +124,10 @@ void lcdDisplayTask(void* pvParameters) {
         float warn_hum_low = config.min_humidity_threshold + hum_margin;
 
         // 3. XÉT DUYỆT TRẠNG THÁI (State Machine)
-        if ((temp_error == EVENT_TEMP_HIGH) || (temp_error == EVENT_TEMP_LOW) ||
-            (hum_error == EVENT_HUM_HIGH) || (hum_error == EVENT_HUM_LOW) ||
+        if ((current_flag & SENSOR_FLAG_TEMP_HIGH) ||
+            (current_flag & SENSOR_FLAG_TEMP_LOW) ||
+            (current_flag & SENSOR_FLAG_HUM_HIGH) ||
+            (current_flag & SENSOR_FLAG_HUM_LOW) ||
             (current_flag & SENSOR_FLAG_DHT_ERR)) {
             current_mode = MODE_CRITICAL;
         } else if ((data.current_temperature >= warn_temp_high) ||
@@ -142,13 +144,13 @@ void lcdDisplayTask(void* pvParameters) {
                 strlcpy(error_msg, "LCD ERR", sizeof(error_msg));
             else if (current_flag & SENSOR_FLAG_DHT_ERR)
                 strlcpy(error_msg, "SENSOR ", sizeof(error_msg));
-            else if (temp_error == EVENT_TEMP_HIGH)
+            else if (current_flag & SENSOR_FLAG_TEMP_HIGH)
                 strlcpy(error_msg, "TEMP HI", sizeof(error_msg));
-            else if (temp_error == EVENT_TEMP_LOW)
+            else if (current_flag & SENSOR_FLAG_TEMP_LOW)
                 strlcpy(error_msg, "TEMP LO", sizeof(error_msg));
-            else if (hum_error == EVENT_HUM_HIGH)
+            else if (current_flag & SENSOR_FLAG_HUM_HIGH)
                 strlcpy(error_msg, "HUM HI ", sizeof(error_msg));
-            else if (hum_error == EVENT_HUM_LOW)
+            else if (current_flag & SENSOR_FLAG_HUM_LOW)
                 strlcpy(error_msg, "HUM LO ", sizeof(error_msg));
             else
                 strlcpy(error_msg, "       ", sizeof(error_msg));

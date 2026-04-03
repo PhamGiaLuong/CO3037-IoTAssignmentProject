@@ -21,6 +21,7 @@ void neopixelTask(void *pvParameters) {
     LOG_INFO("NEOPIXEL", "Neopixel task started");
     bool neo_state = true;
     TickType_t wait_time = portMAX_DELAY;
+    setNeopixelColor(COLOR_GREEN);
     while (1) {
         bool is_new_event =
             (xSemaphoreTake(neo_pixel_sync_semaphore, wait_time) == pdTRUE);
@@ -36,10 +37,10 @@ void neopixelTask(void *pvParameters) {
         if (error_flag & SENSOR_FLAG_DHT_ERR) {
             setNeopixelColor(neo_state ? COLOR_RED : COLOR_OFF);
             wait_time = pdMS_TO_TICKS(500);
-        } else if (hum_error == EVENT_HUM_LOW) {
+        } else if (error_flag & SENSOR_FLAG_HUM_LOW) {
             setNeopixelColor(COLOR_YELLOW);
             wait_time = pdMS_TO_TICKS(1000);
-        } else if (hum_error == EVENT_HUM_HIGH) {
+        } else if (error_flag & SENSOR_FLAG_HUM_HIGH) {
             setNeopixelColor(COLOR_BLUE);
             wait_time = pdMS_TO_TICKS(1000);
         } else {
