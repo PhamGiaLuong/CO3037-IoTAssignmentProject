@@ -423,4 +423,13 @@ void testHook_resetRxQueue() {
         xQueueReset(rx_queue);
     }
 }
+
+void testHook_simulateTxStatus(bool status) {
+    xQueueSend(tx_status_queue, &status, 0);
+}
+
+void testHook_resetEspNowQueues() {
+    if (rx_queue != NULL) xQueueReset(rx_queue);
+    if (tx_status_queue != NULL) xQueueReset(tx_status_queue);
+}
 #endif
