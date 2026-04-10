@@ -8,23 +8,44 @@ PubSubClient mqtt_client(wifi_client);
 const char* wifi_ssid = "Computer Virus";
 const char* wifi_password = "12346789";
 
-String buildJsonPlayload() {
+String buildJsonPlayload(String deviceName) {
     // SensorData data = getSensorData();
     float mock_temp = random(100, 400) / 10.0;
 
     float mock_hum = random(200, 900) / 10.0;
     SensorData data = {mock_temp, mock_hum, true, true};
-    // uint32_t flags = getSensorActiveErrorFlags();
-    StaticJsonDocument<256> doc;
+    String payload = "{\"" + deviceName +
+                     "\":[{\"temperature\":" + String(mock_temp, 1) +
+                     ",\"humidity\":" + String(mock_hum, 1) + "}]}";
+    return payload;
+    // cho gateway
+    // StaticJsonDocument<1024> doc;
 
-    if (data.is_dht20_ok) {
-        doc["temperature"] = serialized(String(data.current_temperature, 1));
-        doc["humidity"] = serialized(String(data.current_humidity, 1));
-    }
+    // // Thiết bị 1: ESP32_001
+    // JsonArray dev1 = doc["Sensor 01"].to<JsonArray>();
+    // JsonObject data1 = dev1.createNestedObject();
+    // // data1["ts"] = 1712750000000; // Thêm ts nếu bạn có NTP
+    // JsonObject val1 = data1["values"].to<JsonObject>();
+    // val1["temperature"] = 22.5;
+    // val1["humidity"] = 55;
 
-    String pay_load;
-    serializeJson(doc, pay_load);
-    return pay_load;
+    // // Thiết bị 2: ESP32_002
+    // JsonArray dev2 = doc["Sensor 02"].to<JsonArray>();
+    // JsonObject data2 = dev2.createNestedObject();
+    // JsonObject val2 = data2["values"].to<JsonObject>();
+    // val2["temperature"] = 30.5;
+    // val2["humidity"] = 80;
+
+    // // Thiết bị 3: ESP32_003
+    // JsonArray dev3 = doc["Sensor 03"].to<JsonArray>();
+    // JsonObject data3 = dev3.createNestedObject();
+    // JsonObject val3 = data3["values"].to<JsonObject>();
+    // val3["temperature"] = 10.5;
+    // val3["humidity"] = 20;
+
+    // String payload;
+    // serializeJson(doc, payload);
+    // return payload;
 }
 
 void coreIotTask(void* pvParematers) {
@@ -41,7 +62,7 @@ void coreIotTask(void* pvParematers) {
         GatewayConfig config = getGatewayConfig();
         strlcpy(config.core_iot_server, "app.coreiot.io", MAX_SERVER_LEN);
         config.core_iot_port = 1883;
-        strlcpy(config.core_iot_token, "core_iot_01", MAX_TOKEN_LEN);
+        strlcpy(config.core_iot_token, "coreiot_gateway", MAX_TOKEN_LEN);
         if (checkGatewayErrorFlag(GW_FLAG_WIFI_DISCONN)) {
             LOG_WARN("IOT", "Wifi disconnected, cannot publish data");
             xSemaphoreGive(wifi_error_semaphore);
@@ -73,9 +94,9 @@ void coreIotTask(void* pvParematers) {
         TickType_t wait_time = pdMS_TO_TICKS(config.send_interval_ms);
         bool is_urgen_event =
             (xSemaphoreTake(coreiot_error_semaphore, wait_time) == pdTRUE);
-        String pay_load = buildJsonPlayload();
+        String pay_load = buildJsonPlayload("Sensor 04");
 
-        const char* topic_telemetry = "esp/telemetry";
+        const char* topic_telemetry = "v1/gateway/telemetry";
 
         if (mqtt_client.publish(topic_telemetry, pay_load.c_str())) {
             if (is_urgen_event) {
