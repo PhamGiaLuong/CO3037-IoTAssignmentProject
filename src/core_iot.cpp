@@ -47,13 +47,16 @@ void coreIotTask(void* pvParematers) {
 
     while (1) {
         GatewayConfig config = getGatewayConfig();
+        GatewayState gw_state = getGatewayState();
         if (checkGatewayErrorFlag(GW_FLAG_WIFI_DISCONN)) {
             LOG_WARN("IOT", "Wifi disconnected, cannot publish data");
+            gw_state.is_wifi_connected = false;
             xSemaphoreGive(wifi_error_semaphore);
 
             vTaskDelay(pdMS_TO_TICKS(2000));
             continue;
         }
+        gw_state.is_wifi_connected = true;
 
         mqtt_client.setServer(config.core_iot_server, config.core_iot_port);
 
@@ -63,11 +66,13 @@ void coreIotTask(void* pvParematers) {
                                     NULL)) {
                 LOG_INFO("IOT", "Connected MQTT");
                 clearGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
+                gw_state.is_coreiot_connected = true;
             } else {
                 if (!checkGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN)) {
                     LOG_ERR("IOT", "MQTT connected fail RC=%d",
                             mqtt_client.state());
                     setGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
+                    gw_state.is_coreiot_connected = false;
                 }
                 vTaskDelay(pdMS_TO_TICKS(5000));
                 continue;
@@ -96,6 +101,8 @@ void coreIotTask(void* pvParematers) {
         } else {
             LOG_ERR("IOT", "Failed to publish data");
             setGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
+            gw_state.is_coreiot_connected = false;
         }
+        setGatewayState(gw_state);
     }
 }

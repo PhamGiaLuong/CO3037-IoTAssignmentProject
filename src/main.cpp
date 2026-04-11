@@ -48,6 +48,7 @@ void setup() {
     xTaskCreate(networkTask, "Network", 4096, NULL, 4, NULL);
     xTaskCreate(webServerTask, "WebServer", 8192, NULL, 3, NULL);
     xTaskCreate(buzzerTask, "Buzzer_Task", 2048, NULL, 4, NULL);
+    xTaskCreate(fanTask, "Fan_Task", 2048, NULL, 4, NULL);
     xTaskCreate(coreIotTask, "CoreIoT", 4096, NULL, 2, NULL);
     xTaskCreate(espNowGatewayTask, "EspNow_GW", 4096, NULL, 4, NULL);
 #endif

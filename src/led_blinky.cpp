@@ -12,7 +12,9 @@
 
 // EVENT MASKS FOR SEVERITY LEVELS
 #define SENSOR_CRITICAL_MASK (SENSOR_FLAG_DHT_ERR | SENSOR_FLAG_LCD_ERR)
-#define SENSOR_WARNING_MASK (SENSOR_FLAG_TEMP_WARN | SENSOR_FLAG_HUM_WARN)
+#define SENSOR_WARNING_MASK                                                 \
+    (SENSOR_FLAG_TEMP_WARN | SENSOR_FLAG_HUM_WARN | SENSOR_FLAG_TEMP_HIGH | \
+     SENSOR_FLAG_TEMP_LOW | SENSOR_FLAG_HUM_HIGH | SENSOR_FLAG_HUM_LOW)
 
 #define GW_CRITICAL_MASK (GW_FLAG_WIFI_DISCONN | GW_FLAG_COREIOT_DISCONN)
 #define GW_WARNING_MASK (GW_FLAG_NET_AP_MODE)
@@ -93,10 +95,10 @@ void gatewayLedBlinkyTask(void* pvParameters) {
             uint32_t current_flags = getGatewayActiveErrorFlags();
             LedLevel new_level = LEVEL_NORMAL;
 
-            if (current_flags & GW_CRITICAL_MASK) {
-                new_level = LEVEL_CRITICAL;
-            } else if (current_flags & GW_WARNING_MASK) {
+            if (current_flags & GW_WARNING_MASK) {
                 new_level = LEVEL_WARNING;
+            } else if (current_flags & GW_CRITICAL_MASK) {
+                new_level = LEVEL_CRITICAL;
             }
 
             if (new_level != current_level) {

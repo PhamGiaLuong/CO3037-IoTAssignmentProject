@@ -478,6 +478,22 @@ void loadConfigFromFlash() {
 
         xSemaphoreGive(gw_config_mutex);
     }
+
+    if (xSemaphoreTake(node_list_mutex, portMAX_DELAY) == pdTRUE) {
+        size_t len = preferences.getBytesLength(PAIRED_NODES_KEY);
+        if (len == sizeof(paired_nodes)) {
+            preferences.getBytes(PAIRED_NODES_KEY, paired_nodes,
+                                 sizeof(paired_nodes));
+            active_node_count = preferences.getUChar(NODE_COUNT_KEY, 0);
+            for (uint8_t i = 0; i < MAX_PAIRED_NODES; i++) {
+                if (paired_nodes[i].is_active) {
+                    paired_nodes[i].is_online = false;
+                    paired_nodes[i].last_seen_millis = millis();
+                }
+            }
+        }
+        xSemaphoreGive(node_list_mutex);
+    }
 #endif
 
 #ifdef SENSOR_NODE
@@ -522,6 +538,12 @@ void saveConfigToFlash() {
         preferences.putShort(SEND_INTERVAL_KEY,
                              gateway_config.send_interval_ms);
         xSemaphoreGive(gw_config_mutex);
+    }
+    if (xSemaphoreTake(node_list_mutex, portMAX_DELAY) == pdTRUE) {
+        preferences.putBytes(PAIRED_NODES_KEY, paired_nodes,
+                             sizeof(paired_nodes));
+        preferences.putUChar(NODE_COUNT_KEY, active_node_count);
+        xSemaphoreGive(node_list_mutex);
     }
 
 #endif

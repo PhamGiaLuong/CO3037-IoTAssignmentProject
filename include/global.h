@@ -22,6 +22,8 @@
 #define DEFAULT_AP_SSID_VALUE "ESP32_IoT_AP"
 #define DEFAULT_AP_PASS_VALUE "11335588"
 #define PREFERENCES_NAMESPACE "co3037_ns"
+#define PAIRED_NODES_KEY "paired_list"
+#define NODE_COUNT_KEY "node_count"
 #define AP_SSID_KEY "ap_ssid"
 #define AP_PASS_KEY "ap_pass"
 #define WIFI_SSID_KEY "wifi_ssid"

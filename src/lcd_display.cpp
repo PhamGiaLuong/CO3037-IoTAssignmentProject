@@ -54,10 +54,13 @@ void lcdDisplayTask(void* pvParameters) {
         Wire.beginTransmission(default_addr);
         if (Wire.endTransmission() != 0) {
             if (!checkSensorErrorFlag(SENSOR_FLAG_LCD_ERR)) {
-                LOG_WARN("LCD", "LCD I2C error: %d", Wire.endTransmission());
+                LOG_WARN("LCD", "LCD I2C error!");
                 setSensorErrorFlag(SENSOR_FLAG_LCD_ERR);
+
                 SensorData data = getSensorData();
                 data.is_lcd_ok = false;
+                setSensorData(data);
+                xSemaphoreGive(sensor_send_telemetry_semaphore);
             }
 
             vTaskDelay(pdMS_TO_TICKS(1000));
@@ -67,6 +70,11 @@ void lcdDisplayTask(void* pvParameters) {
         if (checkSensorErrorFlag(SENSOR_FLAG_LCD_ERR)) {
             LOG_INFO("LCD", "LCD I2C restored");
             clearSensorErrorFlag(SENSOR_FLAG_LCD_ERR);
+
+            SensorData data = getSensorData();
+            data.is_lcd_ok = true;
+            setSensorData(data);
+            xSemaphoreGive(sensor_send_telemetry_semaphore);
 
             lcd->begin();
             lcd->backlight();
@@ -78,14 +86,9 @@ void lcdDisplayTask(void* pvParameters) {
             (xSemaphoreTake(lcd_sync_semaphore, wait_time) == pdTRUE);
 
         SensorData data = getSensorData();
-
         SensorConfig config = getSensorConfig();
         uint32_t current_flag = getSensorActiveErrorFlags();
         SensorState current_state = getSensorState();
-        if (data.is_lcd_ok == false) {
-            data.is_lcd_ok = true;
-            setSensorData(data);
-        }
 
         if (current_flag & SENSOR_FLAG_UNPAIRED) {
             if (is_new_data) {
@@ -106,9 +109,8 @@ void lcdDisplayTask(void* pvParameters) {
             continue;  // Skip the rest of the loop if unpaired
         }
 
-        // 1. TÍNH TOÁN DẢI ĐO (RANGE) VÀ BIÊN ĐỘ (MARGIN)
-        // 0.20 = 20% dải đo sẽ được dùng làm biên độ để xác định ngưỡng cảnh
-        // báo động (dynamic warning threshold)
+        // 1. Calculate dynamic thresholds based on config and determine current
+        // mode
         float temp_range =
             config.max_temp_threshold - config.min_temp_threshold;
         float temp_margin = temp_range * 0.20;
@@ -117,13 +119,13 @@ void lcdDisplayTask(void* pvParameters) {
             config.max_humidity_threshold - config.min_humidity_threshold;
         float hum_margin = hum_range * 0.20;
 
-        // 2. TÍNH TOÁN 4 NGƯỠNG WARNING ĐỘNG
+        // 2. Calculate warning thresholds
         float warn_temp_high = config.max_temp_threshold - temp_margin;
         float warn_temp_low = config.min_temp_threshold + temp_margin;
         float warn_hum_high = config.max_humidity_threshold - hum_margin;
         float warn_hum_low = config.min_humidity_threshold + hum_margin;
 
-        // 3. XÉT DUYỆT TRẠNG THÁI (State Machine)
+        // 3. Determine current mode based on thresholds and error flags
         if ((current_flag & SENSOR_FLAG_TEMP_HIGH) ||
             (current_flag & SENSOR_FLAG_TEMP_LOW) ||
             (current_flag & SENSOR_FLAG_HUM_HIGH) ||

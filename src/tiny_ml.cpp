@@ -253,10 +253,11 @@ void tinyMlTask(void* pvParameters) {
 
         setMlState(new_ml_state);
 
-        // LOG_INFO("TINYML", "Pred: %s | Conf: %.2f%% | Norms: (%.2f, %.2f) |
-        // Speeds: (%.2f, %.2f)",
-        //          new_ml_state.prediction, max_confidence * 100.0f, t_norm,
-        //          h_norm, t_speed, h_speed);
+        LOG_INFO("TINYML",
+                 "Pred: %s | Conf: %.2f%% | Norms: (%.2f, %.2f) | Speeds : (% "
+                 ".2f, % .2f) ",
+                 new_ml_state.prediction, max_confidence * 100.0f, t_norm,
+                 h_norm, t_speed, h_speed);
 
         vTaskDelay(pdMS_TO_TICKS(TINYML_INFERENCE_INTERVAL_MS));
     }

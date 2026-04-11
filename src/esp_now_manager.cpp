@@ -264,7 +264,7 @@ void espNowSensorTask(void* pvParameters) {
                             "Failed to find Gateway on all channels");
             } else {
                 clearSensorErrorFlag(SENSOR_FLAG_ESPNOW_DISCONN);
-                // LOG_INFO("ESPNOW_SN", "Telemetry sent successfully.");
+                LOG_INFO("ESPNOW_SN", "Telemetry sent successfully.");
             }
         }
     }
@@ -377,6 +377,16 @@ void espNowGatewayTask(void* pvParameters) {
                     LOG_WARN("ESPNOW_GW",
                              "Ignored telemetry from UNPAIRED node: %s",
                              mac_str);
+                    MsgPairing unpair_pkt = {
+                        {MSG_PAIRING, GET_SEQ_NUM()}, 0x02, ""};
+                    if (!esp_now_is_peer_exist(rx_pkt.mac_addr)) {
+                        esp_now_peer_info_t peerInfo = {};
+                        memcpy(peerInfo.peer_addr, rx_pkt.mac_addr, 6);
+                        peerInfo.channel = 0;
+                        esp_now_add_peer(&peerInfo);
+                    }
+                    esp_now_send(rx_pkt.mac_addr, (uint8_t*)&unpair_pkt,
+                                 sizeof(unpair_pkt));
                 }
             } else if (header->msg_type == MSG_ACK_RESPONSE) {
                 MsgAckResponse* ack = (MsgAckResponse*)rx_pkt.data;

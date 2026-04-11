@@ -14,6 +14,19 @@ static void setupNodeApi();
 static void setupModeApi();
 static void initMockData();
 
+static bool isValidMacAddress(const char* mac) {
+    if (mac == nullptr || strlen(mac) != 17) return false;
+
+    for (int i = 0; i < 17; i++) {
+        if (i % 3 == 2) {
+            if (mac[i] != ':' && mac[i] != '-') return false;
+        } else {
+            if (!isxdigit(mac[i])) return false;
+        }
+    }
+    return true;
+}
+
 // Main Web Server Task
 void webServerTask(void* pvParameters) {
     if (!LittleFS.begin(true)) {
@@ -96,7 +109,7 @@ static void setupStaticFiles() {
 static void setupDashboardApi() {
     server.on("/api/data", HTTP_GET, []() {
         GatewayState gw_state = getGatewayState();
-        DynamicJsonDocument doc(4096);
+        DynamicJsonDocument doc(8192);
 
         JsonObject gw_obj = doc.createNestedObject("gateway");
         gw_obj["status"] =
@@ -178,7 +191,7 @@ static void setupControlApi() {
         } else if (device_id == 2) {
             c_state.is_device2_on = (state_cmd == "ON");
             setControlState(c_state);
-            message = "Cooler/Fan turned " + state_cmd;
+            message = "Fan turned " + state_cmd;
             LOG_INFO("WEBSERVER", "Device 2 set to %s", state_cmd.c_str());
         } else {
             return server.send(400, "application/json",
@@ -340,13 +353,17 @@ static void setupNodeApi() {
 
         // Update local config
         if (updateNodeConfig(mac, updated_config)) {
+            saveConfigToFlash();
             LOG_INFO("WEBSERVER", "Updated config for Node %s", mac);
 
             // Send Sync Config command via ESP-NOW to the specific Node
             GwDownlinkMessage cmd_msg;
             cmd_msg.type = DOWNLINK_SYNC_CONFIG;
             strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
-            xQueueSend(gw_downlink_queue, &cmd_msg, 0);
+            if (xQueueSend(gw_downlink_queue, &cmd_msg, pdMS_TO_TICKS(100)) !=
+                pdPASS) {
+                LOG_ERR("WEBSERVER", "Queue fulled, command is rejected!");
+            }
 
             server.send(200, "application/json", "{\"status\":\"success\"}");
         } else {
@@ -366,8 +383,22 @@ static void setupNodeApi() {
         const char* mac = doc["mac"];
         const char* name = doc["name"];
 
+        if (!isValidMacAddress(mac)) {
+            LOG_ERR("WEBSERVER", "Invalid MAC Address format rejected: %s",
+                    mac ? mac : "null");
+            return server.send(400, "application/json",
+                               "{\"error\":\"Invalid MAC Address format\"}");
+        }
+
+        if (name == nullptr || strlen(name) == 0 || strlen(name) > 31) {
+            LOG_ERR("WEBSERVER", "Invalid Node Name rejected.");
+            return server.send(400, "application/json",
+                               "{\"error\":\"Invalid Room Name\"}");
+        }
+
         // Add to paired list
         if (addPairedNode(mac, name)) {
+            saveConfigToFlash();
             LOG_INFO("WEBSERVER", "Paired new Node: %s [%s]", name, mac);
 
             // Send Pairing command via ESP-NOW to the new Node
@@ -375,7 +406,10 @@ static void setupNodeApi() {
             cmd_msg.type = DOWNLINK_PAIRING;
             strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
             strlcpy(cmd_msg.room_name, name, 32);
-            xQueueSend(gw_downlink_queue, &cmd_msg, 0);
+            if (xQueueSend(gw_downlink_queue, &cmd_msg, pdMS_TO_TICKS(100)) !=
+                pdPASS) {
+                LOG_ERR("WEBSERVER", "Queue fulled, command is rejected!");
+            }
 
             server.send(200, "application/json", "{\"status\":\"success\"}");
         } else {
@@ -396,13 +430,17 @@ static void setupNodeApi() {
 
         // Delete from paired list
         if (removePairedNode(mac)) {
+            saveConfigToFlash();
             LOG_INFO("WEBSERVER", "Unpaired Node: %s", mac);
 
             // Send Unpairing command via ESP-NOW to the Node
             GwDownlinkMessage cmd_msg;
             cmd_msg.type = DOWNLINK_UNPAIR;
             strlcpy(cmd_msg.target_mac, mac, MAC_STR_LEN);
-            xQueueSend(gw_downlink_queue, &cmd_msg, 0);
+            if (xQueueSend(gw_downlink_queue, &cmd_msg, pdMS_TO_TICKS(100)) !=
+                pdPASS) {
+                LOG_ERR("WEBSERVER", "Queue fulled, command is rejected!");
+            }
 
             server.send(200, "application/json", "{\"status\":\"success\"}");
         } else {

@@ -23,7 +23,7 @@ bool isDeltaChanged(float new_temp, float new_hum) {
 }
 
 // DHT20 CRC calculation based on polynomial 0x31
-uint8_t calDht20CRC(uint8_t *data, uint8_t length) {
+uint8_t calDht20CRC(uint8_t* data, uint8_t length) {
     uint8_t crc = 0xFF;
     for (uint8_t i = 0; i < length; i++) {
         crc ^= data[i];
@@ -39,7 +39,11 @@ uint8_t calDht20CRC(uint8_t *data, uint8_t length) {
 }
 
 // Correct data
-bool readDht20(float *out_temp, float *out_hum) {
+bool readDht20(float* out_temp, float* out_hum) {
+    // *out_temp = 25.0 + (random(0, 101) / 100.0);
+    // *out_hum = 70.0 + (random(0, 201) / 100.0);
+    // return true;
+
     // 1. Init sensor
     Wire.beginTransmission(DHT20_ADDRESS);
     Wire.write(0xAC);
@@ -89,7 +93,7 @@ bool readDht20(float *out_temp, float *out_hum) {
 }
 
 // Checking threshold and filter
-bool processSensorData(float temp, float hum, SensorData *out_data) {
+bool processSensorData(float temp, float hum, SensorData* out_data) {
     // 1. Validate data
     if (isnan(temp) || isnan(hum) || temp < 0 || hum < 0 || temp > 100 ||
         hum > 100.0) {
@@ -144,7 +148,7 @@ SensorData readFromDHT20() {
     return data;
 }
 
-void readSensorTask(void *pvParameters) {
+void readSensorTask(void* pvParameters) {
     LOG_INFO("SENSOR", "Sensor reading task started");
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
@@ -161,6 +165,11 @@ void readSensorTask(void *pvParameters) {
             if (!checkSensorErrorFlag(SENSOR_FLAG_DHT_ERR)) {
                 setSensorErrorFlag(SENSOR_FLAG_DHT_ERR);
                 LOG_WARN("SENSOR", "Error reading from sensor");
+                SensorData data = getSensorData();
+                data.is_dht20_ok = false;
+                setSensorData(data);
+                xSemaphoreGive(sensor_send_telemetry_semaphore);
+                xSemaphoreGive(lcd_sync_semaphore);
             }
         } else {
             LOG_INFO("SENSOR",
@@ -181,6 +190,7 @@ void readSensorTask(void *pvParameters) {
             }
 
             setSensorData(data);
+            xSemaphoreGive(sensor_send_telemetry_semaphore);
 
             // Set system_error_flag for temp and hum
             if (raw_temp > config.max_temp_threshold) {
