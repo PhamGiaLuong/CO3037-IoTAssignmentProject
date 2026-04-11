@@ -5,21 +5,39 @@
 WiFiClient wifi_client;
 PubSubClient mqtt_client(wifi_client);
 
-String buildJsonPlayload() {
-    SensorData data = getSensorData();
-    StaticJsonDocument<256> doc;
+String buildGatewayPayload() {
+    PairedNode nodes[MAX_PAIRED_NODES];
+    uint8_t count = getPairedNodesSnapshot(nodes, MAX_PAIRED_NODES);
 
-    if (data.is_dht20_ok) {
-        doc["temperature"] = serialized(String(data.current_temperature, 1));
-        doc["humidity"] = serialized(String(data.current_humidity, 1));
-    } else {
-        doc["temperature"] = nullptr;
-        doc["humidity"] = nullptr;
+    if (count == 0) return "{}";
+
+    DynamicJsonDocument doc(1024);
+    bool has_online_node = false;
+
+    for (uint8_t i = 0; i < count; i++) {
+        if (nodes[i].is_online) {
+            has_online_node = true;
+
+            String deviceName = String(nodes[i].node_name);
+            JsonArray devArray = doc.createNestedArray(deviceName);
+            JsonObject data = devArray.createNestedObject();
+
+            data["temperature"] = serialized(
+                String(nodes[i].current_data.current_temperature, 1));
+            data["humidity"] =
+                serialized(String(nodes[i].current_data.current_humidity, 1));
+
+            // if (!nodes[i].current_data.is_dht20_ok) {
+            //      data["error"] = "DHT_DISCONNECTED";
+            // }
+        }
     }
 
-    String pay_load;
-    serializeJson(doc, pay_load);
-    return pay_load;
+    String payload = "{}";
+    if (has_online_node) {
+        serializeJson(doc, payload);
+    }
+    return payload;
 }
 
 void coreIotTask(void* pvParematers) {
@@ -60,9 +78,12 @@ void coreIotTask(void* pvParematers) {
         TickType_t wait_time = pdMS_TO_TICKS(config.send_interval_ms);
         bool is_urgen_event =
             (xSemaphoreTake(coreiot_error_semaphore, wait_time) == pdTRUE);
-        String pay_load = buildJsonPlayload();
+        String pay_load = buildGatewayPayload();
 
-        const char* topic_telemetry = "esp/telemetry";
+        if (pay_load == "{}") {
+            continue;
+        }
+        const char* topic_telemetry = "v1/gateway/telemetry";
 
         if (mqtt_client.publish(topic_telemetry, pay_load.c_str())) {
             if (is_urgen_event) {
@@ -71,8 +92,10 @@ void coreIotTask(void* pvParematers) {
             } else {
                 LOG_INFO("IOT", "Published data: %s", pay_load.c_str());
             }
+            clearGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
         } else {
             LOG_ERR("IOT", "Failed to publish data");
+            setGatewayErrorFlag(GW_FLAG_COREIOT_DISCONN);
         }
     }
 }
