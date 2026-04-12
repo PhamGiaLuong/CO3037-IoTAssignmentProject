@@ -69,16 +69,26 @@ void evaluateModelAccuracy() {
     LOG_INFO("TINYML_TEST", "--- STARTING HARDWARE ACCURACY EVALUATION ---");
 
     // Test: {t_norm, h_norm, t_speed, h_speed, Expected_Class}
-    float test_set[5][5] = {
-        {0.5, 0.5, 0.0, 0.0, CLASS_NORMAL},  // Test 1: Normal
-        {0.9, 0.9, 0.1, 0.1, CLASS_NORMAL},  // Test 2: Normal near threshold
-        {1.5, 1.2, 2.5, 15.0, CLASS_DOOR_OPEN},  // Test 3: Open door
-        {1.3, 0.8, 0.1, 0.0, CLASS_FAULT},       // Test 4: Faulty sensor
-        {0.2, 1.5, 0.0, 0.5, CLASS_FAULT}        // Test 5: Faulty sensor
-    };
+    const int num_tests = 15;
+    float test_set[num_tests][5] = {{0.5, 0.5, 0.0, 0.0, CLASS_NORMAL},
+                                    {0.9, 0.9, 0.1, 0.1, CLASS_NORMAL},
+                                    {0.1, 0.2, -0.05, 0.0, CLASS_NORMAL},
+                                    {0.6, 0.4, 0.02, -0.02, CLASS_NORMAL},
+                                    {1.0, 1.0, 0.0, 0.0, CLASS_NORMAL},
+
+                                    {1.5, 1.2, 2.5, 15.0, CLASS_DOOR_OPEN},
+                                    {1.2, 1.1, 1.0, 5.0, CLASS_DOOR_OPEN},
+                                    {1.8, 1.6, 3.5, 20.0, CLASS_DOOR_OPEN},
+                                    {2.5, 2.0, 4.0, 18.0, CLASS_DOOR_OPEN},
+                                    {1.1, 1.5, 0.8, 12.0, CLASS_DOOR_OPEN},
+
+                                    {-2.0, 2.5, 0.0, 0.0, CLASS_FAULT},
+                                    {0.2, 3.0, 0.0, 0.0, CLASS_FAULT},
+                                    {-5.0, 0.5, 0.0, 0.0, CLASS_FAULT},
+                                    {0.5, -1.5, 0.0, 0.0, CLASS_FAULT},
+                                    {0.5, 0.5, 88.0, -35.0, CLASS_FAULT}};
 
     int correct_predictions = 0;
-    const int num_tests = 5;
 
     for (int i = 0; i < num_tests; i++) {
         ml_input->data.f[0] = test_set[i][0];
@@ -116,7 +126,7 @@ void evaluateModelAccuracy() {
         }
 
         LOG_INFO("TINYML_TEST",
-                 "Test %d | Exp: %d | Pred: %d | Conf: %.2f | Time: %lu us",
+                 "Test %02d | Exp: %d | Pred: %d | Conf: %.2f | Time: %lu us",
                  i + 1, expected_class, predicted_class, max_p,
                  (unsigned long)(end_time - start_time));
     }
@@ -137,6 +147,8 @@ void tinyMlTask(void* pvParameters) {
         LOG_ERR("TINYML", "Failed to start TinyML task due to init error.");
         vTaskDelete(NULL);
     }
+
+    evaluateModelAccuracy();
 
     float prev_temp = 0.0f;
     float prev_hum = 0.0f;
