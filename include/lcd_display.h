@@ -5,4 +5,4 @@
 #define SENSOR_SDA_PIN 11
 #define SENSOR_SCL_PIN 12
 
-void lcdDisplayTask(void *pvParameters);
+void lcdDisplayTask(void* pvParameters);
