@@ -43,16 +43,25 @@ Dưới đây là các nhiệm vụ chính cần thực hiện. Các thành viê
     * **Cơ chế Semaphore sử dụng:** Sử dụng 2 Binary Semaphore độc lập (sensor_led_sync_semaphore và gw_led_sync_semaphore). Thay vì Polling tốn CPU, các Task giám sát khi phát hiện lỗi sẽ xSemaphoreGive để đánh thức lập tức Task LED, ép nó đổi chu kỳ chớp tắt theo thời gian thực (Real-time).
 
 #### Task 2: NeoPixel LED Control Based on Humidity
-* **Mô tả:** Điều khiển màu sắc LED NeoPixel dựa trên độ ẩm tại Sensor Node.
+* **Mô tả:** Điều khiển dải đèn LED NeoPixel làm công cụ phản hồi hình ảnh (Visual Feedback) cảnh báo đa tầng dựa trên dữ liệu môi trường và dự đoán của TinyML tại Sensor Node.
 * **Chi tiết tính năng:**
-    * [TODO: Mapping dải độ ẩm - màu sắc]
-    * [TODO: Logic đồng bộ hóa Semaphore]
+* Ma trận màu sắc cảnh báo ưu tiên:
+    * **Bình thường (Xanh lá):** Môi trường ổn định, AI dự đoán "Normal".
+    * **Cảnh báo AI (Xanh dương):** AI dự đoán "Door Open" hoặc "Restock" (Tình trạng tạm thời, chưa vi phạm ngưỡng nhiệt).
+    * **Cảnh báo môi trường (Vàng):** Nhiệt độ/Độ ẩm tiến sát mức giới hạn an toàn (Cách ngưỡng Min/Max 20%)..
+    * **Tới hạn (Đỏ):** Vượt ngưỡng Min/Max vật lý bảo quản hàng hóa.
+    * **Lỗi Hệ thống (Nháy Cam/Đỏ liên tục):** Lỗi kết nối I2C/DHT20 hoặc rớt mạng ESP-NOW.
+ * Logic đồng bộ hóa Semaphore (Non-blocking): Task NeoPixel duy trì trạng thái Blocked để tiết kiệm CPU và chỉ bị đánh thức bằng semaphore khi các Task giám sát (Cảm biến, AI, Lỗi mạng) cập nhật mới nhất qua vùng nhớ dùng chung (Mutex protected), triệt tiêu độ trễ hiển thị.
 
 #### Task 3: Temperature and Humidity Monitoring with LCD
 * **Mô tả:** Hiển thị thông tin lên LCD tại Sensor Node, quản lý trạng thái hiển thị (Normal/Warning/Critical) và loại bỏ biến toàn cục.
 * **Chi tiết tính năng:**
-    * [TODO: Các trạng thái hiển thị]
-    * [TODO: Phương pháp loại bỏ global variables]
+* Các trạng thái hiển thị (State Machine):
+    * **NORMAL:** Hiển thị liên tục thông số Nhiệt độ và Độ ẩm dạng thập phân.
+    * **WARNING:** Giao diện nhấp nháy ký tự "WARN" cảnh báo tiền trạm dựa trên thuật toán Tolerance Margin (sai số 20%).
+    * **CRITICAL/ERROR:** Màn hình nháy toàn bộ đèn nền hiển thị mã lỗi chuyên sâu (VD: TEMP HI, HUM LO, SENSOR ERR).
+* Phương pháp loại bỏ Global Variables: Dữ liệu cảm biến không còn để "trôi nổi" trên RAM. Thay vào đó, Task đọc DHT20 (Producer) đóng gói Nhiệt độ/Độ ẩm vào một Struct an toàn SensorData và gửi cho Task LCD (Consumer) qua FreeRTOS Queue.
+* Lọc dữ liệu: Áp dụng Moving Average Filter (Trung bình trượt 5 mẫu) trước khi xuất ra LCD để loại bỏ độ nhiễu đột biến của cảm biến.
 
 #### Task 4: Web Server in Access Point Mode
 * **Mô tả:** Xây dựng Web Server chạy trên ESP32 (Gateway) đóng vai trò là Captive Portal quản lý tập trung toàn bộ mạng lưới (Multi-node Network) qua giao diện SPA (Single Page Application).
@@ -68,10 +77,11 @@ Dưới đây là các nhiệm vụ chính cần thực hiện. Các thành viê
     * **Cơ chế Debounce trên phần cứng:** Kết hợp kết quả phân loại từ TFLite Micro với logic quản lý trạng thái trên C++. Khi AI báo "Door Open", hệ thống không báo động ngay mà bắt đầu đếm ngược (Debounce ~ 20 giây). Nếu cửa vẫn mở quá thời gian quy định, cờ Semaphore cảnh báo mới được kích hoạt. Quá trình Inference tốn chưa đến 1ms và cấp phát bộ nhớ Arena Size chỉ khoảng 8KB RAM.
 
 #### Task 6: Data Publishing to CoreIOT Cloud Server
-* **Mô tả:** Gateway tổng hợp dữ liệu từ các Sensor Node qua ESP-NOW và đẩy lên CoreIOT Server qua WiFi (Station Mode) bằng MQTT.
+* **Mô tả:** Gateway thực hiện thu thập, đóng gói dữ liệu từ toàn bộ Sensor Node trong mạng ESP-NOW thành một chuỗi JSON tiêu chuẩn và xuất bản (Publish) lên ThingsBoard (CoreIoT) thông qua kết nối MQTT Wi-Fi.
 * **Chi tiết tính năng:**
-    * [TODO: Cấu hình xác thực Token]
-    * [TODO: Tần suất gửi dữ liệu]
+    * **Thuật toán Đóng gói JSON đa thiết bị (Dynamic Payload):** Task quản lý CoreIoT chụp một "Snapshot" (bản sao an toàn từ Mutex) của mảng dữ liệu ESP-NOW. Sử dụng thư viện ArduinoJson, nó chỉ lọc và gộp dữ liệu từ các Node đang Online vào một khối Gateway Telemetry JSON duy nhất (VD: {"Room1": [{"temp": 25}], "Room2": [{"temp": -5}]}), tối ưu hóa băng thông mạng.
+    * **Cơ chế gửi theo chu kỳ:** Gửi dữ liệu định kỳ mỗi 15-30 giây (có thể điều chỉnh qua Web Server).
+    * **Quản lý Vòng đời Kết nối (Auto-Recovery):** Theo dõi liên tục trạng thái WiFi và MQTT Broker. Nếu mất kết nối, hệ thống tự động đưa vào chu kỳ Back-off Delay (chờ 5s trước khi thử lại) thay vì chặn CPU để liên tục dò tìm, và đẩy cờ cảnh báo lỗi cục bộ lên Gateway LED.
 
 ---
 
